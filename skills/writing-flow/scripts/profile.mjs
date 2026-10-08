@@ -158,3 +158,20 @@ export async function resolveProfile({ cwd = process.cwd(), roots = defaultRoots
 }
 
 export { HOUSE_STYLE };
+
+const PREFERENCES = 'learned-preferences.json';
+
+/**
+ * Read what a profile has learned. Absence and damage both mean "nothing learned yet" —
+ * a corrupted notes file must never stop someone writing.
+ */
+export function readPreferences(dir) {
+  const file = join(dir, PREFERENCES);
+  if (!existsSync(file)) return [];
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'));
+    return Array.isArray(parsed) ? parsed.filter((entry) => entry && typeof entry.text === 'string') : [];
+  } catch {
+    return [];
+  }
+}

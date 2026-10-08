@@ -2,11 +2,25 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.7.0
+
+- **Two gaps closed that would have made the profile advisory rather than applied.** The
+  pipeline skill never told the agent to *read* the resolved profile - it said which one won and
+  left it there, so a profile could be resolved and then ignored. It now instructs reading the
+  profiles SKILL.md and applying it.
+- **Learned preferences were write-only.** `learn_preference` appended to
+  `learned-preferences.json` and nothing ever read it. `get_profile` now returns
+  `learnedPreferences`, and the skill instructs applying them and never re-litigating a recorded
+  one.
+- Added ROADMAP.md: the memory plan, the release process, the known gaps in priority order, and
+  the parked hosted-service decisions.
+- README and the internal plan sanitised of machine-specific paths.
+
 ## 0.6.1
 
 - The README's install section is now **agent-executable**, because pasting the repo link and
   asking an agent to install it is a primary path. It states the prerequisites (Node 18+,
-  network, Python 3), the dry run, and — the step that was missing — **the harness reload**,
+  network, Python 3), the dry run, and â€” the step that was missing â€” **the harness reload**,
   without which the MCP server is registered but invisible.
 - It also records what the installer deliberately does not do: create a profile, touch a harness
   it cannot find, or remove anything. The last one matters: the installer copies but never
@@ -14,12 +28,12 @@ All notable changes to this package. Versioning follows Semantic Versioning.
 
 ## 0.6.0
 
-- **Commands renamed: `/write` → `/flow-writing`, `/doctor` → `/flow-doctor`.** The filename is
+- **Commands renamed: `/write` â†’ `/flow-writing`, `/doctor` â†’ `/flow-doctor`.** The filename is
   the command name, and in OpenCode's flat namespace a bare `/doctor` collides with unrelated
   tooling (the `react-doctor` skill already claims that trigger). The `flow-` prefix is what
   keeps the pair unambiguous.
 - In Claude Code the plugin name is prefixed, so they read `/writing-flow:flow-writing` and
-  `/writing-flow:flow-doctor` — redundant there, correct in a flat namespace.
+  `/writing-flow:flow-doctor` â€” redundant there, correct in a flat namespace.
 - The MCP prompts keep their unprefixed names (`write`, `doctor`): clients namespace prompts
   themselves, so a prefix there would double.
 
@@ -38,7 +52,7 @@ All notable changes to this package. Versioning follows Semantic Versioning.
 
 - **MCP prompts: `write` and `doctor`.** The server now declares the `prompts` capability and
   answers `prompts/list` and `prompts/get`. A prompt is user-invoked, which is the MCP
-  counterpart of a slash command and the only portable one — `commands/*.md` reaches Claude
+  counterpart of a slash command and the only portable one â€” `commands/*.md` reaches Claude
   Code and Cursor, a prompt reaches any client that surfaces prompts.
 - `write` takes a required `request`, and unlike a static file it is **computed**: it names the
   profile active at the moment it is served, with the voice path, house-style path, languages
@@ -57,19 +71,19 @@ All notable changes to this package. Versioning follows Semantic Versioning.
   component types and must be ignored, and `.mcp.json` is not the fixed `mcp.json` path.
 - **No Cursor manifest is shipped, deliberately.** Cursor reads the Agent Plugins manifest
   already, and `.cursor-plugin/marketplace.json` is for multi-plugin repositories.
-- The installed Claude plugin bundle carries no skills — they already live in
+- The installed Claude plugin bundle carries no skills â€” they already live in
   `~/.claude/skills`, and a namespaced plugin copy would duplicate them.
 
 ## 0.2.1
 
 - The pipeline skill now suggests a profile: when the active profile is the bundled default it
   says so **once** and moves on, and it names `generate_profile` (with the CLI fallback) as the
-  way to create or import a voice. Bounded on purpose — a suggestion that repeats becomes
+  way to create or import a voice. Bounded on purpose â€” a suggestion that repeats becomes
   nagging, and one that blocks stops the writing. Pinned by a test.
 
 ## 0.2.0
 
-- `generate_profile`: build a profile in the standard format from existing writing — a
+- `generate_profile`: build a profile in the standard format from existing writing â€” a
   `SKILL.md`, a markdown file, or a directory containing one. Reports every line it would drop
   as pipeline instruction, previews by default, and requires `confirm: true` to write.
   `includeAll` keeps every line. Exposed as a seventh MCP tool and as a CLI
@@ -85,7 +99,7 @@ Initial release.
   style rules.
 - `voice-default` skill: a neutral fallback profile, marked `isDefault` so it never competes
   with a real profile for resolution.
-- `gate.mjs`: gates 4 and 5 in Node, replacing `write-gate.ps1`. Exit contract preserved —
+- `gate.mjs`: gates 4 and 5 in Node, replacing `write-gate.ps1`. Exit contract preserved â€”
   `0` clean, `1` violation, `2` tool error, with a missing tool always `2`.
 - `profile.mjs`: profile manifest parsing and three-tier resolution, with same-tier ambiguity
   reported rather than silently resolved.

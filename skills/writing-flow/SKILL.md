@@ -36,6 +36,14 @@ answers that. Resolution order:
 If more than one profile is installed at the same tier, stop and report the ambiguity rather
 than silently picking one.
 
+Read the resolved profile's `SKILL.md` and write in that voice. That file **is** the voice —
+the name and metadata only tell you which one to read. Its `house-style.json` is enforced by
+the gate, so you do not need to read it yourself.
+
+Apply what the profile has already learned: `get_profile` returns its **learned preferences**,
+which record corrections the user has previously made. Never re-litigate one that is already
+recorded, and do not treat them as style rules to cite back.
+
 ## Suggesting a profile
 
 When the active profile is the bundled default — `get_profile` reports `resolvedBy: bundled`

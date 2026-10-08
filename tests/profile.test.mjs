@@ -1,9 +1,10 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { resolveProfile, readManifest, defaultRoots } from '../skills/writing-flow/scripts/profile.mjs';
+import { readPreferences } from '../skills/writing-flow/scripts/profile.mjs';
 
 const quiet = () => mkdtempSync(join(tmpdir(), 'wf-'));
 
@@ -107,6 +108,21 @@ test('readManifest rejects a house style path that escapes the profile', () => {
     requiredSkills: [],
   }));
   assert.throws(() => readManifest(dir), /houseStyle/);
+});
+
+test('reads learned preferences, tolerating absence and damage', () => {
+  const dir = quiet();
+  assert.deepEqual(readPreferences(dir), [], 'absent is empty, not an error');
+
+  writeFileSync(join(dir, 'learned-preferences.json'), JSON.stringify([
+    { text: 'prefers short sentences' },
+    { nope: true },
+    'garbage',
+  ]));
+  assert.deepEqual(readPreferences(dir), [{ text: 'prefers short sentences' }]);
+
+  writeFileSync(join(dir, 'learned-preferences.json'), '{ not json');
+  assert.deepEqual(readPreferences(dir), [], 'damaged is empty, not a crash');
 });
 
 test('defaultRoots returns absolute paths', () => {

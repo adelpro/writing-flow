@@ -43,17 +43,17 @@ Each line is pinned to the test in the owning task, in that task's step style.
 ### Task 1: Package skeleton and manifest
 
 **Files:**
-- Create: `D:\benyahia-dev\writing-flow\plugin.json`
-- Create: `D:\benyahia-dev\writing-flow\LICENSE` (MIT)
-- Create: `D:\benyahia-dev\writing-flow\.gitignore` (`node_modules/`, `paths.json`, `*.log`)
-- Create: `D:\benyahia-dev\writing-flow\schemas\1.0.0\plugin.schema.json`
-- Create: `D:\benyahia-dev\writing-flow\schemas\1.0.0\mcp.schema.json`
-- Test: `D:\benyahia-dev\writing-flow\tests\manifest.test.mjs`
+- Create: `<repo>\plugin.json`
+- Create: `<repo>\LICENSE` (MIT)
+- Create: `<repo>\.gitignore` (`node_modules/`, `paths.json`, `*.log`)
+- Create: `<repo>\schemas\1.0.0\plugin.schema.json`
+- Create: `<repo>\schemas\1.0.0\mcp.schema.json`
+- Test: `<repo>\tests\manifest.test.mjs`
 
 **Interfaces:**
 - Produces: the plugin root every later task writes into; the vendored schemas' path `schemas/1.0.0/`.
 
-- [ ] **Step 1: Decide the repo home.** Create the directory `D:\benyahia-dev\writing-flow`, `git init`, and confirm the name `writing-flow` is acceptable. If it changes, change it in `plugin.json` and the README only.
+- [ ] **Step 1: Decide the repo home.** Create the directory `<repo>`, `git init`, and confirm the name `writing-flow` is acceptable. If it changes, change it in `plugin.json` and the README only.
 - [ ] **Step 2: Vendor the two schemas.** Download `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` and `.../mcp.schema.json` into `schemas/1.0.0/`. Clients never fetch schemas at load time; we validate offline.
 - [ ] **Step 3: Write the failing test**
 
@@ -653,11 +653,11 @@ git commit -m "feat(shims): generate client shims from the portable MCP config"
 **Interfaces:**
 - Consumes: the rendered package from Task 9.
 
-- [ ] **Step 1: Back up first.** Copy `~/.config/opencode/skills/adelpro-voice/` and `house-style.json` to `%LOCALAPPDATA%\Temp\opencode\pre-migration\`.
+- [ ] **Step 1: Back up first.** Copy `~/.config/opencode/skills/adelpro-voice/` and `house-style.json` to `<backup-dir>\`.
 - [ ] **Step 2: Trim `adelpro-voice` to voice only.** Delete the pipeline, loop and gate sections now owned by `skills/writing-flow/`. The skill becomes prose plus the private `writing-profile.json` and `house-style.json`.
 - [ ] **Step 3: Render into OpenCode.** Run `node install.mjs` (dry run first, then for real) and confirm `~/.agents/skills/writing-flow/` exists with its `scripts/`.
 - [ ] **Step 4: Verify the gate parity once more, in place.** Run `node ~/.agents/skills/writing-flow/scripts/gate.mjs <fixture>` and confirm `0 / 1 / 2`.
-- [ ] **Step 5: Retire `write-gate.ps1`** only after Step 4 passes. Move it to `%LOCALAPPDATA%\Temp\opencode\pre-migration\` rather than deleting.
+- [ ] **Step 5: Retire `write-gate.ps1`** only after Step 4 passes. Move it to `<backup-dir>\` rather than deleting.
 - [ ] **Step 6: Update `extraConfigPaths`.** `house-style.json`, `WRITING-FLOW.md` and `scripts` currently sync; repoint or drop each so no two copies of the same file sync. Run `opencode_sync status` to confirm the config still parses.
 - [ ] **Step 7: Commit** the package repo; note the config-repo change for the next startup sync.
 
@@ -679,14 +679,14 @@ git commit -m "feat(shims): generate client shims from the portable MCP config"
 ### Task 13: Build and install the private voice package
 
 **Files:**
-- Create: `D:\benyahia-dev\adelpro-voice-profile\plugin.json`
-- Create: `D:\benyahia-dev\adelpro-voice-profile\skills\adelpro-voice\{SKILL.md,writing-profile.json,house-style.json,voice-card.md}`
-- Create: `D:\benyahia-dev\adelpro-voice-profile\README.md`
+- Create: `<profile-repo>\plugin.json`
+- Create: `<profile-repo>\skills\adelpro-voice\{SKILL.md,writing-profile.json,house-style.json,voice-card.md}`
+- Create: `<profile-repo>\README.md`
 
 **Interfaces:**
 - Consumes: the moved voice text and `house-style.json` from Task 11.
 
-- [ ] **Step 1: Create the private repo** `D:\benyahia-dev\adelpro-voice-profile`, `git init`, and confirm it is **private** if it is ever pushed.
+- [ ] **Step 1: Create the private repo** `<profile-repo>`, `git init`, and confirm it is **private** if it is ever pushed.
 - [ ] **Step 2: Assemble the profile.** `SKILL.md` is the voice text; `writing-profile.json` sets `name: "adelpro"`, `languages: ["ar-MSA","en"]`, `arabicStages: ["fasaha","voice-recheck"]`, `requiredSkills` listing all four dependencies.
 - [ ] **Step 3: Render `voice-card.md`** from the manifest and confirm it contains no unresolved placeholders.
 - [ ] **Step 4: Install and verify.** Render into `~/.agents/skills/`, run `doctor`, and confirm the effective profile switches from `default` to `adelpro` (Review Focus 3 now resolves cleanly).

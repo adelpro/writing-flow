@@ -12,7 +12,7 @@ import { createInterface } from 'node:readline';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defaultRoots, readManifest, resolveProfile } from './profile.mjs';
+import { defaultRoots, readManifest, readPreferences, resolveProfile } from './profile.mjs';
 import { renderProfile } from './render.mjs';
 import { runDoctor } from './doctor.mjs';
 import { runGate } from './gate.mjs';
@@ -129,6 +129,7 @@ const effective = async (cwd) => {
     ambiguous: r.ambiguous,
     candidates: r.candidates,
     warnings: r.warnings,
+    learnedPreferences: readPreferences(r.dir),
   };
 };
 
