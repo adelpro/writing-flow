@@ -1,0 +1,1 @@
+This is a plain sentence with no banned abbreviations.
