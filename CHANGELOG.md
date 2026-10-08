@@ -2,6 +2,10 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.8.2
+
+- **CI went red on its first run, and it was right to.** The integration job installed the dependency skills through the skills CLI, the suite passed, and the guard step failed - which means the tools had not resolved and the gate tests had silently skipped. A green run that tests nothing is the exact failure CI exists to catch. The job now installs the tools by cloning, which does not depend on the CLI detecting an installed agent, and asserts the two entry scripts exist before running anything.
+
 ## 0.8.1
 
 - Documented the skills-CLI install route, verified rather than assumed: the CLI finds both skills in this repository, -a opencode installs to `~/.agents/skills`, and `-s` takes one skill per flag. It is also now stated plainly that this installs skills and nothing else - no command, no MCP server, no `paths.json`.

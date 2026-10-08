@@ -43,20 +43,33 @@ jobs:
         with:
           node-version: '22'
 
+      # Installed by cloning rather than through the skills CLI, because the CLI's target
+      # depends on detecting an installed agent — and a CI runner has none, so it can exit 0
+      # having placed nothing. This mirrors what `--copy` does, without the detection.
       - name: Install the dependency skills
         run: |
-          npx -y skills@latest add adelpro/fasaha                   -g -a opencode -s fasaha            -y --copy
-          npx -y skills@latest add adelpro/purple-cow-content        -g -a opencode -s purple-cow-content -y --copy
-          npx -y skills@latest add conorbronsdon/avoid-ai-writing    -g -a opencode -s avoid-ai-writing   -y --copy
-          npx -y skills@latest add guillaumemeyer/watermarks-remover -g -a opencode -s remove-ai-marks    -y --copy
+          set -euo pipefail
+          mkdir -p "$HOME/.agents/skills"
+          clone() { git clone --depth 1 "https://github.com/$1" "$HOME/.agents/skills/$2"; }
+          clone conorbronsdon/avoid-ai-writing    avoid-ai-writing
+          clone guillaumemeyer/watermarks-remover remove-ai-marks
+          clone adelpro/fasaha                    fasaha
+          clone adelpro/purple-cow-content        purple-cow-content
+          echo "--- what landed ---"
+          ls -1 "$HOME/.agents/skills"
+          test -f "$HOME/.agents/skills/avoid-ai-writing/scripts/check-style.js"
+          test -f "$HOME/.agents/skills/remove-ai-marks/scripts/inspect_text.py"
 
       - name: Run the whole suite
         run: node --test
 
       # The point of this job is the gate. If the tools failed to resolve, the gate tests skip
-      # and the run above still passes — so assert that they did not.
+      # and the run above still passes green — so assert that they did not.
       - name: The gate tests must not silently skip
         run: |
           node --test tests/gate.test.mjs tests/mcp.test.mjs > gate.log 2>&1
           cat gate.log
-          grep -q "# skipped 0" gate.log
+          grep -q "# skipped 0" gate.log || {
+            echo "::error::the gate tests skipped — the third-party tools did not resolve"
+            exit 1
+          }
