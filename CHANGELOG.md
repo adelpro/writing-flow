@@ -2,6 +2,13 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.9.1
+
+- **Reverted the Gemini CLI extension.** 0.9.0 added `gemini-extension.json`, `GEMINI.md` and two `.toml` commands; all of it is removed.
+- The surface no longer exists: Gemini CLI stopped serving free, Google AI Pro and Google AI Ultra users on 18 June 2026, replaced by Antigravity CLI. What remains is enterprise licences and paid API keys.
+- And Antigravity needs nothing from us: it reads **Agent Plugins** packages - `plugin.json` + `skills/` + `mcp.json` - which is what this repository has shipped all along. The extension was supporting a retired product with a format already covered, at the cost of a hand-maintained context file and two command files.
+- Recorded as a revert rather than rewritten out of history, and the version moves forward so nobody sees it go backwards.
+
 ## 0.8.3
 
 - **Fixed: gate 5 could never work on a fresh install.** `remove-ai-marks` keeps its skill and its Python machinery in separate trees of the same repository - `skills/remove-ai-marks/` holds only SKILL.md and references, and every script lives under `service/scripts`. `npx skills add` therefore installed instructions with nothing to execute, so a new user got `exit 2` from the gate forever. The installer now fetches the declared machinery too. Found by CI, and exactly the gap the roadmap predicted in 'never run on a machine without the dependencies'.

@@ -205,16 +205,21 @@ as published. The root `plugin.json` is the manifest; no shim needed.
 
 **OpenCode** — `node install.mjs --apply` places all three pieces at once.
 
-**Gemini CLI** uses its own extension format (`.toml` commands, MCP config, `GEMINI.md`), so the
-skills do not carry over. The MCP server does, through its settings.
+**Antigravity** reads **Agent Plugins** packages directly — `plugin.json`, `skills/` and `mcp.json`
+— which is exactly what this repository already is, so there is nothing extra to ship for it.
+(Antigravity's *native* plugin format uses `mcp_config.json` rather than `mcp.json` and can carry
+hooks and rules; its migration tool `agy plugin import gemini` converts the older Gemini CLI
+layout.) **No Gemini-specific files are shipped**, because Gemini CLI stopped serving free, Pro and
+Ultra users on 18 June 2026 — its replacement is Antigravity CLI, and the format above already
+covers it.
 
 **If a client can take only one piece, take the skills.** They carry the entire process, and the
 gate is runnable as a plain command from inside them — the pipeline is designed to work with no
 MCP server configured. The server is the layer that reaches clients with no skills system at all:
 in a chat UI it is the *only* option.
 
-Exact install syntax for Codex and Gemini CLI moves between versions — check their current docs.
-What is listed here is the payload you are placing, which is the part that will not change.
+Exact install syntax for Codex and Antigravity CLI moves between versions — check their current
+docs. What is listed here is the payload you are placing, which is the part that will not change.
 
 **One rule matters when editing:** the engine lives inside `skills/writing-flow/scripts/`
 because the skills CLI copies skill directories flat. Anything the skill needs at run time must
