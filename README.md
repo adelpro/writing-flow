@@ -90,6 +90,10 @@ it would drop as *pipeline* instruction rather than voice. Nothing is written un
 Over MCP, the same thing is `generate_profile`, which previews by default and needs
 `confirm: true` to write.
 
+**It is suggested, not triggered.** If the active profile is the bundled default, the pipeline
+skill mentions once that a personal profile can be generated — then continues with the default.
+It never blocks the writing, and it never repeats.
+
 ## Tests
 
 ```sh

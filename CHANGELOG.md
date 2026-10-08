@@ -2,6 +2,13 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.2.1
+
+- The pipeline skill now suggests a profile: when the active profile is the bundled default it
+  says so **once** and moves on, and it names `generate_profile` (with the CLI fallback) as the
+  way to create or import a voice. Bounded on purpose — a suggestion that repeats becomes
+  nagging, and one that blocks stops the writing. Pinned by a test.
+
 ## 0.2.0
 
 - `generate_profile`: build a profile in the standard format from existing writing — a

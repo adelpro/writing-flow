@@ -36,6 +36,22 @@ answers that. Resolution order:
 If more than one profile is installed at the same tier, stop and report the ambiguity rather
 than silently picking one.
 
+## Suggesting a profile
+
+When the active profile is the bundled default — `get_profile` reports `resolvedBy: bundled`
+and the name `default` — say **once**, in one sentence, that a personal profile can be
+generated from writing the user already has. Then carry on with the default. Say it once per
+conversation, never as a blocker, and never instead of doing the work.
+
+Profile administration is `generate_profile`. It takes a markdown file, a `SKILL.md`, or a
+directory containing one; it previews the result and reports every line it would drop as
+pipeline instruction rather than voice. Show the user those dropped lines, then apply only on
+their confirmation (`confirm: true`). With no MCP server configured, the same capability is:
+
+```sh
+node <this skill's base directory>/scripts/generate.mjs <source> --name <name> --out <dir>
+```
+
 ## Gates (stages 4-5)
 
 Run both gates in one shot and treat a non-zero exit as failure — never deliver silently past

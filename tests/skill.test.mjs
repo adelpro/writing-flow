@@ -32,3 +32,11 @@ test('runs without an MCP server', () => {
 test('carries no voice text', () => {
   assert.ok(!/Adel/.test(skill), 'the pipeline skill must not name the author voice');
 });
+
+test('suggests generating a profile without letting it block the work', () => {
+  assert.match(skill, /generate_profile/, 'the skill must name the tool that creates a profile');
+  assert.match(skill, /bundled default/i, 'the suggestion hinges on the active profile being the fallback');
+  assert.match(skill, /\bonce\b/i, 'the suggestion must be bounded, or it becomes nagging');
+  assert.match(skill, /never as a blocker|not a blocker|never block/i, 'the suggestion must never stop the writing');
+  assert.match(skill, /generate\.mjs/, 'the CLI path must be named, so the suggestion works with no server');
+});
