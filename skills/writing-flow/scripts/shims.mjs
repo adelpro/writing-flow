@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 const PORTABLE = '${PLUGIN_ROOT}';
 const CLAUDE_PLACEHOLDER = '${CLAUDE_PLUGIN_ROOT}';
 const OPENCODE_TOKEN = '__PLUGIN_ROOT__';
+const GEMINI_PLACEHOLDER = '${extensionPath}';
 
 const rewrite = (value, from, to) => {
   if (typeof value === 'string') return value.split(from).join(to);
@@ -34,6 +35,17 @@ const opencodeEntry = (config) => ({
 });
 
 /**
+ * Gemini CLI separates the executable from its arguments, like OpenCode, and expands
+ * `${extensionPath}` itself — a documented variable, so no token of ours belongs here.
+ */
+const geminiEntry = (config) => {
+  const entry = { command: rewrite(config.command, PORTABLE, GEMINI_PLACEHOLDER) };
+  if (config.args) entry.args = rewrite(config.args, PORTABLE, GEMINI_PLACEHOLDER);
+  if (config.cwd) entry.cwd = rewrite(config.cwd, PORTABLE, GEMINI_PLACEHOLDER);
+  return entry;
+};
+
+/**
  * Generate every client shim from the single portable `mcp.json`.
  *
  * The Claude Code files are written to the plugin ROOT, not into a bundle to copy: Claude Code
@@ -56,6 +68,9 @@ export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = 
   );
   const opencodeServers = Object.fromEntries(
     Object.entries(portable).map(([name, config]) => [name, opencodeEntry(config)]),
+  );
+  const geminiServers = Object.fromEntries(
+    Object.entries(portable).map(([name, config]) => [name, geminiEntry(config)]),
   );
 
   const claudeManifest = {
@@ -86,10 +101,22 @@ export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = 
     ],
   };
 
+  // Gemini CLI loads `skills/`, `commands/*.toml` and the declared servers from the extension
+  // root, so this repository is already shaped for it. No `excludeTools`: the gate is a shell
+  // command, and excluding shell execution would leave nothing able to run it.
+  const geminiManifest = {
+    name: manifest.name,
+    version: manifest.version,
+    description: manifest.description,
+    contextFileName: 'GEMINI.md',
+    mcpServers: geminiServers,
+  };
+
   const files = [
     { path: join(target, '.claude-plugin', 'plugin.json'), content: `${asString(claudeManifest)}\n` },
     { path: join(target, '.claude-plugin', 'marketplace.json'), content: `${asString(marketplace)}\n` },
     { path: join(target, '.mcp.json'), content: `${asString({ mcpServers: claudeServers })}\n` },
+    { path: join(target, 'gemini-extension.json'), content: `${asString(geminiManifest)}\n` },
     { path: join(target, 'shims', 'opencode', 'mcp.opencode.json'), content: `${asString(opencodeServers)}\n` },
   ];
 

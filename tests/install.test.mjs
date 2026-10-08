@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEPENDENCIES, install } from '../install.mjs';
@@ -104,6 +104,26 @@ test('plans the Python machinery for a dependency that ships it separately', asy
     r.actions.some((a) => a.detail.includes('service/scripts')),
     `the plan must fetch the machinery, else gate 5 has nothing to run:\n${r.actions.map((a) => a.detail).join('\n')}`,
   );
+});
+
+test('does not copy Gemini TOML commands into the Markdown command directories', async () => {
+  const home = scratchHome();
+  mkdirSync(join(home, '.config', 'opencode'), { recursive: true });
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  await install({ home, dependencies: [], runner: recorder().runner });
+
+  const targets = [
+    join(home, '.config', 'opencode', 'commands'),
+    join(home, '.claude', 'plugins', 'writing-flow', 'commands'),
+  ];
+  for (const dir of targets) {
+    const files = readdirSync(dir);
+    assert.ok(files.includes('flow-writing.md'), `${dir} should get the Markdown command`);
+    assert.ok(
+      !files.some((file) => file.endsWith('.toml')),
+      `${dir} is read by clients expecting Markdown: ${files.join(', ')}`,
+    );
+  }
 });
 
 test('refuses a dependency identifier containing shell metacharacters', async () => {

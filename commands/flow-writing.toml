@@ -1,0 +1,21 @@
+description = "Run the voice-writing flow — draft in the active profile's voice, then gate it"
+
+prompt = """
+Run the voice-writing flow over this request:
+
+{{args}}
+
+Load the `writing-flow` skill and follow it exactly. It owns the stage order, the bounded loop,
+the register rule and the stop conditions — do not restate them and do not improvise the order.
+
+Read the resolved profile's SKILL.md and write in that voice. `get_profile` reports which profile
+is active and why.
+
+Write the draft to a BOM-less UTF-8 file, then run both gates in one shot — prefer the `run_gate`
+tool, or run the CLI from the writing-flow skill directory:
+
+  node <writing-flow skill directory>/scripts/gate.mjs <draft-file>
+
+Exit 0 clean; 1 violation, so name the offending rule or codepoint, fix it and re-run once;
+2 tool error, so report it and do not loop. Never deliver silently past a failing gate.
+"""
