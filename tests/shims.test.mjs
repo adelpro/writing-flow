@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateShims } from '../skills/writing-flow/scripts/shims.mjs';
@@ -60,46 +60,6 @@ test('no Cursor manifest is generated', async () => {
     !files.some((f) => f.path.includes('.cursor-plugin')),
     'Cursor reads the Agent Plugins manifest already; a marketplace file is for multi-plugin repos',
   );
-});
-
-test('the Gemini extension manifest matches the plugin and points at the server', async () => {
-  const { files } = await preview();
-  const gemini = JSON.parse(find(files, 'gemini-extension.json').content);
-  const manifest = JSON.parse(readFileSync('plugin.json', 'utf8'));
-
-  assert.equal(gemini.name, manifest.name);
-  assert.equal(gemini.version, manifest.version);
-  assert.equal(gemini.contextFileName, 'GEMINI.md');
-
-  const server = gemini.mcpServers[manifest.name];
-  assert.equal(server.command, 'node', 'Gemini wants the executable and its args separated');
-  assert.match(server.args[0], /^\$\{extensionPath\}\//, 'Gemini expands ${extensionPath} itself');
-  assert.ok(server.args[0].endsWith('mcp-server.mjs'));
-  assert.ok(!JSON.stringify(gemini).includes(PORTABLE), 'no placeholder of ours may survive');
-});
-
-test('the Gemini manifest does not exclude shell execution', async () => {
-  const { files } = await preview();
-  const gemini = JSON.parse(find(files, 'gemini-extension.json').content);
-  const excluded = gemini.excludeTools ?? [];
-  assert.ok(
-    !excluded.some((tool) => tool.startsWith('run_shell_command')),
-    'the gate is a shell command; excluding it would leave nothing able to run it',
-  );
-});
-
-test('the Gemini commands are TOML, with a prompt, and hold no placeholders', () => {
-  const names = readdirSync('commands');
-  for (const name of ['flow-writing.toml', 'flow-doctor.toml']) {
-    assert.ok(names.includes(name), `${name} is missing`);
-    const text = readFileSync(join('commands', name), 'utf8');
-    assert.match(text, /^prompt\s*=\s*"""/m, `${name} needs a prompt`);
-    assert.match(text, /^description\s*=\s*"/m, `${name} needs a description for /help`);
-    assert.ok(
-      !text.includes('${extensionPath}'),
-      `${name}: variables expand in the manifest and hooks, not in commands`,
-    );
-  }
 });
 
 test('the OpenCode fragment carries a token the installer substitutes', async () => {

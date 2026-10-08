@@ -2,13 +2,6 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
-## 0.9.0
-
-- **Gemini CLI support.** `gemini-extension.json` at the repository root makes it an installable extension: `gemini extensions install https://github.com/adelpro/writing-flow`. Generated from `mcp.json` and `plugin.json` like the Claude files, using Gemini own `\${extensionPath}\` variable rather than a token. Deliberately declares no `excludeTools` - the gate is a shell command, and excluding shell execution would leave nothing able to run it.
-- **The skills carry over for free.** Gemini CLI loads `skills/` from the extension root, which this repository already has, so no duplication was needed.
-- `GEMINI.md` is a context file loaded every session. It points at the skill, the prompt and the tools rather than restating the pipeline, which would have been a fourth copy to keep in step.
-- `commands/flow-writing.toml` and `commands/flow-doctor.toml`, thin like their Markdown counterparts. Variables do not expand inside commands, so the TOMLs name the skill directory instead of using `\${extensionPath}\` - pinned by a test.
-
 ## 0.8.3
 
 - **Fixed: gate 5 could never work on a fresh install.** `remove-ai-marks` keeps its skill and its Python machinery in separate trees of the same repository - `skills/remove-ai-marks/` holds only SKILL.md and references, and every script lives under `service/scripts`. `npx skills add` therefore installed instructions with nothing to execute, so a new user got `exit 2` from the gate forever. The installer now fetches the declared machinery too. Found by CI, and exactly the gap the roadmap predicted in 'never run on a machine without the dependencies'.
