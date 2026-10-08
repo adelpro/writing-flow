@@ -1,0 +1,15 @@
+{
+  "name": "writing-flow",
+  "description": "Portable voice-writing pipeline. Drafts in a profile's voice, runs the Arabic, anti-AI and provenance passes, and gates the result deterministically.",
+  "owner": {
+    "name": "Adel Ben Yahia",
+    "url": "https://github.com/adelpro"
+  },
+  "plugins": [
+    {
+      "name": "writing-flow",
+      "source": "./",
+      "description": "Portable voice-writing pipeline. Drafts in a profile's voice, runs the Arabic, anti-AI and provenance passes, and gates the result deterministically."
+    }
+  ]
+}

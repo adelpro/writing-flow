@@ -199,7 +199,7 @@ export async function install({
 
   const opencodeHome = join(home, '.config', 'opencode');
   if (existsSync(opencodeHome)) {
-    copyFile(join(pluginRoot, 'shims', 'opencode', 'commands', 'write.md'), join(opencodeHome, 'commands', 'write.md'), dryRun, actions);
+    copyFile(join(pluginRoot, 'commands', 'write.md'), join(opencodeHome, 'commands', 'write.md'), dryRun, actions);
 
     const { files } = await generateShims({ pluginRoot, outDir: join(pluginRoot, 'shims'), dryRun: true });
     const fragmentFile = files.find((f) => f.path.endsWith('mcp.opencode.json'));
@@ -216,7 +216,13 @@ export async function install({
 
   const claudeHome = join(home, '.claude');
   if (existsSync(claudeHome)) {
-    copySkill(join(pluginRoot, 'shims', 'claude-code'), join(claudeHome, 'plugins', 'writing-flow'), dryRun, actions);
+    // Assembled from the root-level Claude files. No skills are copied here on purpose: the
+    // skills already live in ~/.claude/skills, and a plugin copy would namespace and duplicate
+    // them, which is the trigger duplication this package avoids everywhere else.
+    const bundle = join(claudeHome, 'plugins', 'writing-flow');
+    copyFile(join(pluginRoot, '.claude-plugin', 'plugin.json'), join(bundle, '.claude-plugin', 'plugin.json'), dryRun, actions);
+    copyFile(join(pluginRoot, '.mcp.json'), join(bundle, '.mcp.json'), dryRun, actions);
+    copyFile(join(pluginRoot, 'commands', 'write.md'), join(bundle, 'commands', 'write.md'), dryRun, actions);
   }
 
   return { ok: true, home: resolve(home), roots, actions, skipped };

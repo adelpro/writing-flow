@@ -35,10 +35,19 @@ const opencodeEntry = (config) => ({
 
 /**
  * Generate every client shim from the single portable `mcp.json`.
- * Generating them removes the drift that a "keep two configs in sync" check would only detect.
+ *
+ * The Claude Code files are written to the plugin ROOT, not into a bundle to copy: Claude Code
+ * looks for `.claude-plugin/plugin.json` at the plugin root, so a root-level pair makes the
+ * repository a Claude plugin directly. Conformant Agent Plugins clients ignore extra top-level
+ * directories, and `.mcp.json` is not the fixed `mcp.json` path they read — so this costs
+ * nothing on the portable side.
+ *
+ * Cursor needs no file: Cursor reads the Agent Plugins `plugin.json` it already finds, and
+ * `.cursor-plugin/marketplace.json` is for multi-plugin repositories.
  */
-export async function generateShims({ pluginRoot = '.', outDir = 'shims', dryRun = true } = {}) {
+export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = true } = {}) {
   const root = resolve(pluginRoot);
+  const target = outDir ? resolve(outDir) : root;
   const portable = JSON.parse(readFileSync(join(root, 'mcp.json'), 'utf8')).mcpServers;
   const manifest = JSON.parse(readFileSync(join(root, 'plugin.json'), 'utf8'));
 
@@ -57,20 +66,26 @@ export async function generateShims({ pluginRoot = '.', outDir = 'shims', dryRun
     license: manifest.license,
   };
 
-  const target = resolve(outDir);
+  // A marketplace entry's `source` is relative to the marketplace root and must not contain
+  // "..", and the entry name must equal the plugin's manifest name.
+  const marketplace = {
+    name: manifest.name,
+    description: manifest.description,
+    owner: manifest.author ?? { name: manifest.name },
+    plugins: [
+      {
+        name: manifest.name,
+        source: './',
+        description: manifest.description,
+      },
+    ],
+  };
+
   const files = [
-    {
-      path: join(target, 'claude-code', '.claude-plugin', 'plugin.json'),
-      content: `${asString(claudeManifest)}\n`,
-    },
-    {
-      path: join(target, 'claude-code', '.mcp.json'),
-      content: `${asString({ mcpServers: claudeServers })}\n`,
-    },
-    {
-      path: join(target, 'opencode', 'mcp.opencode.json'),
-      content: `${asString(opencodeServers)}\n`,
-    },
+    { path: join(target, '.claude-plugin', 'plugin.json'), content: `${asString(claudeManifest)}\n` },
+    { path: join(target, '.claude-plugin', 'marketplace.json'), content: `${asString(marketplace)}\n` },
+    { path: join(target, '.mcp.json'), content: `${asString({ mcpServers: claudeServers })}\n` },
+    { path: join(target, 'shims', 'opencode', 'mcp.opencode.json'), content: `${asString(opencodeServers)}\n` },
   ];
 
   if (!dryRun) {
@@ -86,7 +101,7 @@ export async function generateShims({ pluginRoot = '.', outDir = 'shims', dryRun
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]).endsWith('shims.mjs');
 if (invokedDirectly) {
   const apply = process.argv.includes('--apply');
-  const outDir = resolve(dirname(process.argv[1]), '..', '..', '..', 'shims');
-  const report = await generateShims({ pluginRoot: resolve(dirname(process.argv[1]), '..', '..', '..'), outDir, dryRun: !apply });
+  const pluginRoot = resolve(dirname(process.argv[1]), '..', '..', '..');
+  const report = await generateShims({ pluginRoot, dryRun: !apply });
   for (const file of report.files) process.stdout.write(`${apply ? 'wrote' : 'would write'} ${file.path}\n`);
 }

@@ -2,6 +2,20 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.3.0
+
+- **The repository is now a Claude Code plugin as well as an Agent Plugins 1.0.0 package.**
+  `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `.mcp.json` moved to the
+  repository root, and `commands/write.md` moved out of the copyable bundle. Claude Code looks
+  for its manifest at the plugin root, so the previous layout could only ever be a bundle to
+  copy. The files stay generated from `mcp.json` and `plugin.json`.
+- Conformant Agent Plugins clients are unaffected: extra top-level directories are not
+  component types and must be ignored, and `.mcp.json` is not the fixed `mcp.json` path.
+- **No Cursor manifest is shipped, deliberately.** Cursor reads the Agent Plugins manifest
+  already, and `.cursor-plugin/marketplace.json` is for multi-plugin repositories.
+- The installed Claude plugin bundle carries no skills — they already live in
+  `~/.claude/skills`, and a namespaced plugin copy would duplicate them.
+
 ## 0.2.1
 
 - The pipeline skill now suggests a profile: when the active profile is the bundled default it

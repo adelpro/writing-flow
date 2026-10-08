@@ -43,13 +43,31 @@ A missing tool is always `2`, never a silent pass.
 
 ```
 plugin.json                      Agent Plugins 1.0.0 manifest
+mcp.json                         the bundled stdio MCP server (single source of truth)
+commands/write.md                the /write command (Claude Code + OpenCode)
+.claude-plugin/                  Claude Code manifest and marketplace (generated)
+.mcp.json                        Claude Code MCP config (generated)
 skills/writing-flow/SKILL.md     the pipeline contract (no voice, no style rules)
 skills/writing-flow/scripts/     the engine: gate, profile, render, doctor, MCP server
 skills/voice-default/            the neutral fallback profile
-mcp.json                         the bundled stdio MCP server
 install.mjs                      the installer (+ .ps1 / .sh shims)
-shims/                           generated client configs, ignored by conformant clients
+shims/opencode/                  generated OpenCode fragment
 ```
+
+**One repo, three client surfaces.** The root is an Agent Plugins package for Codex, Cursor,
+Copilot/VS Code and Kiro; `.claude-plugin/` makes it a Claude Code plugin and marketplace; and
+`mcp.json` gives every MCP client the server. The Claude files are generated, never
+hand-maintained — `shims.mjs` writes them all from `mcp.json` and `plugin.json`.
+
+### Claude Code
+
+```
+/plugin marketplace add adelpro/writing-flow
+/plugin install writing-flow@writing-flow
+```
+
+Or, from a clone: `node install.mjs --apply` writes the bundle to
+`~/.claude/plugins/writing-flow/`.
 
 **One rule matters when editing:** the engine lives inside `skills/writing-flow/scripts/`
 because the skills CLI copies skill directories flat. Anything the skill needs at run time must

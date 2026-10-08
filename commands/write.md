@@ -28,7 +28,7 @@ $ARGUMENTS
      it, and re-run once.
    - exit `2` → tool error, not a content problem. Report it; do not loop.
 
-   Read the exit code immediately after the call; piping the output through another command
+   Read the exit code immediately after the call; piping the gate output through another command
    loses it.
 
 5. **Never deliver silently past a failing gate.** If the re-run still fails, deliver the text

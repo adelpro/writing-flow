@@ -63,6 +63,17 @@ test('never issues a bare global skills update', async () => {
   }
 });
 
+test('installs a Claude plugin bundle from the root-level Claude files', async () => {
+  const home = scratchHome();
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  await install({ home, dependencies: [], runner: recorder().runner });
+  const bundle = join(home, '.claude', 'plugins', 'writing-flow');
+  assert.ok(existsSync(join(bundle, '.claude-plugin', 'plugin.json')));
+  assert.ok(existsSync(join(bundle, '.mcp.json')));
+  assert.ok(existsSync(join(bundle, 'commands', 'write.md')));
+  assert.equal(existsSync(join(bundle, 'skills')), false, 'skills must not be duplicated into the plugin bundle');
+});
+
 test('does not install generated skills into the hand-curated OpenCode skills directory', async () => {
   const home = scratchHome();
   mkdirSync(join(home, '.config', 'opencode', 'skills'), { recursive: true });
