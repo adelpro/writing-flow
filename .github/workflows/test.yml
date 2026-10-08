@@ -43,22 +43,18 @@ jobs:
         with:
           node-version: '22'
 
-      # Installed by cloning rather than through the skills CLI, because the CLI's target
-      # depends on detecting an installed agent — and a CI runner has none, so it can exit 0
-      # having placed nothing. This mirrors what `--copy` does, without the detection.
-      - name: Install the dependency skills
+      # Installs through the package's own installer, so CI exercises the path a user actually
+      # takes rather than a parallel reimplementation of it.
+      - name: Install with the package's own installer
+        run: node install.mjs --apply
+
+      - name: The gate entry points must exist
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.agents/skills"
-          clone() { git clone --depth 1 "https://github.com/$1" "$HOME/.agents/skills/$2"; }
-          clone conorbronsdon/avoid-ai-writing    avoid-ai-writing
-          clone guillaumemeyer/watermarks-remover remove-ai-marks
-          clone adelpro/fasaha                    fasaha
-          clone adelpro/purple-cow-content        purple-cow-content
-          echo "--- what landed ---"
-          ls -1 "$HOME/.agents/skills"
           test -f "$HOME/.agents/skills/avoid-ai-writing/scripts/check-style.js"
           test -f "$HOME/.agents/skills/remove-ai-marks/scripts/inspect_text.py"
+          ls -1 "$HOME/.agents/skills"
+          node skills/writing-flow/scripts/doctor.mjs
 
       - name: Run the whole suite
         run: node --test

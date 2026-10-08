@@ -2,6 +2,11 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.8.3
+
+- **Fixed: gate 5 could never work on a fresh install.** `remove-ai-marks` keeps its skill and its Python machinery in separate trees of the same repository - `skills/remove-ai-marks/` holds only SKILL.md and references, and every script lives under `service/scripts`. `npx skills add` therefore installed instructions with nothing to execute, so a new user got `exit 2` from the gate forever. The installer now fetches the declared machinery too. Found by CI, and exactly the gap the roadmap predicted in 'never run on a machine without the dependencies'.
+- CI now installs through the package's own installer, so it exercises the path a user takes rather than a parallel reimplementation, and asserts both gate entry points exist before running the suite.
+
 ## 0.8.2
 
 - **CI went red on its first run, and it was right to.** The integration job installed the dependency skills through the skills CLI, the suite passed, and the guard step failed - which means the tools had not resolved and the gate tests had silently skipped. A green run that tests nothing is the exact failure CI exists to catch. The job now installs the tools by cloning, which does not depend on the CLI detecting an installed agent, and asserts the two entry scripts exist before running anything.

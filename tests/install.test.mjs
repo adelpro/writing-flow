@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { install } from '../install.mjs';
+import { DEPENDENCIES, install } from '../install.mjs';
 
 const scratchHome = () => mkdtempSync(join(tmpdir(), 'wf-home '));
 
@@ -93,6 +93,17 @@ test('does not install generated skills into the hand-curated OpenCode skills di
   await install({ home, dependencies: [], runner: recorder().runner });
   assert.equal(existsSync(join(home, '.config', 'opencode', 'skills', 'writing-flow')), false);
   assert.ok(existsSync(join(home, '.agents', 'skills', 'writing-flow', 'SKILL.md')), 'the real root still gets them');
+});
+
+test('plans the Python machinery for a dependency that ships it separately', async () => {
+  const dep = DEPENDENCIES.find((d) => d.skill === 'remove-ai-marks');
+  assert.ok(dep?.machinery, 'remove-ai-marks keeps its scripts outside the skill directory');
+
+  const r = await install({ home: scratchHome(), dryRun: true, dependencies: [dep], runner: recorder().runner });
+  assert.ok(
+    r.actions.some((a) => a.detail.includes('service/scripts')),
+    `the plan must fetch the machinery, else gate 5 has nothing to run:\n${r.actions.map((a) => a.detail).join('\n')}`,
+  );
 });
 
 test('refuses a dependency identifier containing shell metacharacters', async () => {

@@ -10,7 +10,8 @@
  * restores files that were deliberately pruned.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -27,7 +28,15 @@ export const DEPENDENCIES = [
   { skill: 'fasaha', repo: 'adelpro/fasaha' },
   { skill: 'purple-cow-content', repo: 'adelpro/purple-cow-content' },
   { skill: 'avoid-ai-writing', repo: 'conorbronsdon/avoid-ai-writing' },
-  { skill: 'remove-ai-marks', repo: 'guillaumemeyer/watermarks-remover' },
+  {
+    skill: 'remove-ai-marks',
+    repo: 'guillaumemeyer/watermarks-remover',
+    // This repository keeps the skill and its Python machinery in separate trees:
+    // `skills/remove-ai-marks/` holds SKILL.md and references, and every script lives under
+    // `service/scripts`. Installing only the skill leaves gate 5 with nothing to execute, so
+    // the installer fetches the machinery too.
+    machinery: 'service/scripts',
+  },
 ];
 
 /** The skills this package ships, installed into every harness root. */
@@ -153,6 +162,30 @@ const mergeConfigText = (text, fragment) => {
   return { text: `${text.slice(0, at)}${insertion}${text.slice(at)}`, changed: true };
 };
 
+/**
+ * Fetch a dependency's Python machinery, which some repositories keep out of the skill
+ * directory. `skills add` copies instructions only, so without this gate 5 has no script to run
+ * and exits 2 forever on an otherwise healthy install.
+ */
+const installMachinery = (dep, primary) => {
+  const temp = mkdtempSync(join(tmpdir(), 'writing-flow-'));
+  try {
+    const cloned = spawnSync('git', ['clone', '--depth', '1', `https://github.com/${dep.repo}`, temp], { stdio: 'inherit' });
+    if (cloned.status !== 0) throw new Error(`git clone failed for ${dep.repo}`);
+
+    const from = join(temp, ...dep.machinery.split('/'));
+    if (!existsSync(from)) throw new Error(`machinery path not found in ${dep.repo}: ${dep.machinery}`);
+
+    const to = join(primary, dep.skill, 'scripts');
+    mkdirSync(to, { recursive: true });
+    for (const entry of readdirSync(from, { withFileTypes: true })) {
+      if (entry.isFile()) copyFileSync(join(from, entry.name), join(to, entry.name));
+    }
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+};
+
 export async function install({
   home,
   pluginRoot = PLUGIN_ROOT,
@@ -205,6 +238,18 @@ export async function install({
       detail: dryRun ? `would run: ${command}` : `ran: ${command}`,
     });
     if (!dryRun) runner('npx', args);
+
+    if (dep.machinery) {
+      const target = join(primary, dep.skill, 'scripts');
+      actions.push({
+        kind: dryRun ? 'create' : 'wrote',
+        target,
+        detail: dryRun
+          ? `would copy ${dep.repo}/${dep.machinery} into ${target}`
+          : `copied ${dep.repo}/${dep.machinery} into ${target}`,
+      });
+      if (!dryRun) installMachinery(dep, primary);
+    }
   }
 
   // The client shims are generated from the single portable mcp.json, then wired in here.
