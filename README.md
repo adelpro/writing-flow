@@ -178,7 +178,23 @@ Claude Code has a one-liner for exactly that:
 claude mcp add writing-flow -- node <plugin-root>/skills/writing-flow/scripts/mcp-server.mjs
 ```
 
-**Any client that reads Agent Skills** — copy the two skill directories into its skills root:
+**Any client that reads Agent Skills** — the skills CLI installs both skills in one command:
+
+```sh
+npx -y skills@latest add adelpro/writing-flow -g -a opencode -s writing-flow -s voice-default -y --copy
+```
+
+- `-a` is the agent id — `opencode`, `claude`, `cursor`, or `*` for every agent it detects.
+  **`-a opencode` installs to `~/.agents/skills`**, not `~/.config/opencode/skills`.
+- `-s` takes **one skill per flag**. A comma-separated list silently falls into the interactive
+  picker instead of installing.
+- Verified: the CLI finds two skills in this repository, `writing-flow` and `voice-default`.
+
+**This installs skills and nothing else** — no `/flow-writing` command, no MCP server, no
+`paths.json`. For those, run the installer or add the MCP entry below. The skills are the piece
+that carries the process, so this is a working install, just a partial one.
+
+Or copy them by hand:
 
 ```sh
 cp -r skills/writing-flow skills/voice-default <that-client's-skills-directory>

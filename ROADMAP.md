@@ -71,7 +71,14 @@ compares them against the generator and fails if they drift.
 ### Update path for users
 
 There is no auto-update. Users run `git pull` and `node install.mjs --apply`. The skills travel
-separately, via `npx skills add` or by the installer's targeted pulls.
+separately and can be updated on their own:
+
+```sh
+npx -y skills@latest add adelpro/writing-flow -g -a opencode -s writing-flow -s voice-default -y --copy
+```
+
+That installs **skills only** — no commands, no MCP server, no `paths.json`. The installer places
+all four pieces.
 
 ### Missing infrastructure
 

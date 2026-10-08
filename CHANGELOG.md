@@ -2,6 +2,10 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.8.1
+
+- Documented the skills-CLI install route, verified rather than assumed: the CLI finds both skills in this repository, -a opencode installs to `~/.agents/skills`, and `-s` takes one skill per flag. It is also now stated plainly that this installs skills and nothing else - no command, no MCP server, no `paths.json`.
+
 ## 0.8.0
 
 - **CI.** GitHub Actions: a fast hermetic job across ubuntu node 22/24 and windows node 22, plus an integration job that installs the four dependency skills so the gate is exercised against the real upstream tools. That job asserts the gate tests did not silently skip - the suite passes vacuously without the tools, which is exactly the failure a green badge would hide.
