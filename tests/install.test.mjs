@@ -63,11 +63,11 @@ test('never issues a bare global skills update', async () => {
   }
 });
 
-test('installs every native command, not just /write', async () => {
+test('installs every native command, not just /flow-writing', async () => {
   const home = scratchHome();
   mkdirSync(join(home, '.config', 'opencode'), { recursive: true });
   await install({ home, dependencies: [], runner: recorder().runner });
-  for (const command of ['write.md', 'doctor.md']) {
+  for (const command of ['flow-writing.md', 'flow-doctor.md']) {
     assert.ok(
       existsSync(join(home, '.config', 'opencode', 'commands', command)),
       `${command} must reach ~/.config/opencode/commands/`,
@@ -82,8 +82,8 @@ test('installs a Claude plugin bundle from the root-level Claude files', async (
   const bundle = join(home, '.claude', 'plugins', 'writing-flow');
   assert.ok(existsSync(join(bundle, '.claude-plugin', 'plugin.json')));
   assert.ok(existsSync(join(bundle, '.mcp.json')));
-  assert.ok(existsSync(join(bundle, 'commands', 'write.md')));
-  assert.ok(existsSync(join(bundle, 'commands', 'doctor.md')));
+  assert.ok(existsSync(join(bundle, 'commands', 'flow-writing.md')));
+  assert.ok(existsSync(join(bundle, 'commands', 'flow-doctor.md')));
   assert.equal(existsSync(join(bundle, 'skills')), false, 'skills must not be duplicated into the plugin bundle');
 });
 
@@ -110,7 +110,7 @@ test('wires the MCP server and the command into an existing OpenCode config', as
   mkdirSync(join(home, '.config', 'opencode'), { recursive: true });
   await install({ home, dependencies: [], runner: recorder().runner });
 
-  assert.ok(existsSync(join(home, '.config', 'opencode', 'commands', 'write.md')), 'the /write command must be installed');
+  assert.ok(existsSync(join(home, '.config', 'opencode', 'commands', 'flow-writing.md')), 'the command must be installed');
 
   const config = JSON.parse(readFileSync(join(home, '.config', 'opencode', 'opencode.json'), 'utf8'));
   assert.ok(config.mcp['writing-flow'], 'the MCP server must be registered');

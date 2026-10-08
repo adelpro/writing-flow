@@ -44,7 +44,7 @@ A missing tool is always `2`, never a silent pass.
 ```
 plugin.json                      Agent Plugins 1.0.0 manifest
 mcp.json                         the bundled stdio MCP server (single source of truth)
-commands/write.md                the /write command (Claude Code + OpenCode)
+commands/                        the native commands: flow-writing, flow-doctor
 .claude-plugin/                  Claude Code manifest and marketplace (generated)
 .mcp.json                        Claude Code MCP config (generated)
 skills/writing-flow/SKILL.md     the pipeline contract (no voice, no style rules)
@@ -79,7 +79,7 @@ and the only portable one:
 | `write` | `request` (required) | Runs the whole flow, carrying the profile that is active at the moment it is served |
 | `doctor` | — | Asks for the setup to be diagnosed in plain language, with the fixing command |
 
-A prompt is **computed at request time**, which is what `commands/write.md` cannot do: it names
+A prompt is **computed at request time**, which a static command file cannot do: it names
 the profile actually in play rather than leaving the agent to discover it. Where a client does
 not surface prompts, `commands/` and the skill's own triggers remain the entry points — prompts
 are protocol-portable, but no client is obliged to show them.
@@ -90,9 +90,9 @@ are protocol-portable, but no client is obliged to show them.
 
 | Client | Reads `commands/`? | Invocation | How it arrives |
 |---|---|---|---|
-| Claude Code | yes — plugin component | `/writing-flow:write`, `/writing-flow:doctor` | the plugin, or `install.mjs` |
+| Claude Code | yes — plugin component | `/writing-flow:flow-writing`, `/writing-flow:flow-doctor` | the plugin, or `install.mjs` |
 | Cursor | yes — Cursor's plugin format | Cursor's command surface | the plugin |
-| OpenCode | **no** | `/write`, `/doctor` | `install.mjs` copies it |
+| OpenCode | **no** | `/flow-writing`, `/flow-doctor` | `install.mjs` copies it |
 | Codex, Copilot, Kiro | **no** | — | the skill, or the MCP prompts |
 
 **OpenCode does not read the repository's `commands/`.** It reads `~/.config/opencode/commands/`,
@@ -104,8 +104,13 @@ cp commands/*.md ~/.config/opencode/commands/
 ```
 
 Two names for the same files, and it is worth saying so wherever you point people: in **OpenCode**
-they are plain `/write` and `/doctor` (personal commands), while in **Claude Code** they are
-namespaced `/writing-flow:write` and `/writing-flow:doctor` (plugin-provided).
+they are `/flow-writing` and `/flow-doctor` — personal commands in a flat namespace — while in
+**Claude Code** the plugin name is prefixed, giving `/writing-flow:flow-writing` and
+`/writing-flow:flow-doctor`. The `flow-` prefix is deliberate: a bare `/doctor` collides with
+unrelated tooling, and a flat namespace has no other way to stay clear.
+
+The MCP prompts are named `write` and `doctor` and left unprefixed, because clients namespace
+prompts themselves (`/mcp__writing-flow__write`). Prefixing those would double it.
 
 **One rule matters when editing:** the engine lives inside `skills/writing-flow/scripts/`
 because the skills CLI copies skill directories flat. Anything the skill needs at run time must

@@ -2,6 +2,17 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.6.0
+
+- **Commands renamed: `/write` → `/flow-writing`, `/doctor` → `/flow-doctor`.** The filename is
+  the command name, and in OpenCode's flat namespace a bare `/doctor` collides with unrelated
+  tooling (the `react-doctor` skill already claims that trigger). The `flow-` prefix is what
+  keeps the pair unambiguous.
+- In Claude Code the plugin name is prefixed, so they read `/writing-flow:flow-writing` and
+  `/writing-flow:flow-doctor` — redundant there, correct in a flat namespace.
+- The MCP prompts keep their unprefixed names (`write`, `doctor`): clients namespace prompts
+  themselves, so a prefix there would double.
+
 ## 0.5.0
 
 - **`commands/doctor.md`.** The diagnostic entry point now exists as a native command alongside
