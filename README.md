@@ -75,6 +75,21 @@ A profile is a skill directory containing `writing-profile.json`:
 Installing that profile takes over the voice with no change to this package; removing it falls
 back to the default.
 
+### Generating one from writing you already have
+
+You do not have to author the files by hand:
+
+```sh
+node skills/writing-flow/scripts/generate.mjs ./my-writing.md --name myvoice --out ~/.agents/skills/myvoice
+```
+
+It reads a markdown file, a `SKILL.md`, or a directory containing one, and reports every line
+it would drop as *pipeline* instruction rather than voice. Nothing is written until you add
+`--apply`. Read the dropped lines before you do — a bad split is how a voice gets mangled.
+
+Over MCP, the same thing is `generate_profile`, which previews by default and needs
+`confirm: true` to write.
+
 ## Tests
 
 ```sh

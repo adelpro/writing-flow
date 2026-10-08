@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, copyFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveToolPaths } from '../skills/writing-flow/scripts/resolve-paths.mjs';
@@ -63,13 +63,14 @@ const withServer = async (fn) => {
   }
 };
 
-test('initializes and advertises exactly the six tools', async () => {
+test('initializes and advertises exactly the seven tools', async () => {
   const hello = await withServer(async (child) => {
     const listed = await rpc(child, 'tools/list', {});
     return listed.result.tools.map((t) => t.name).sort();
   });
   assert.deepEqual(hello, [
     'doctor',
+    'generate_profile',
     'get_profile',
     'learn_preference',
     'manage_profile',
@@ -198,4 +199,28 @@ test('get_profile sees a project override in the project the caller names', asyn
     const result = await call(child, 'get_profile', { cwd: project });
     assert.equal(result.structuredContent.resolvedBy, 'project');
   });
+});
+
+test('generate_profile previews, refuses to apply without confirm, then applies', async () => {
+  const root = scratch();
+  const source = join(root, 'SOURCE.md');
+  writeFileSync(source, '# Voice\n\n- Quiet and factual.\n- No calls to action.\n');
+  const out = join(root, 'quiet');
+
+  await withServer(async (child) => {
+    const preview = await call(child, 'generate_profile', { source, name: 'quiet', outDir: out });
+    assert.equal(preview.isError, undefined);
+    assert.equal(preview.structuredContent.dryRun, true);
+    assert.ok(preview.structuredContent.files.length >= 4);
+
+    const refused = await call(child, 'generate_profile', { source, name: 'quiet', outDir: out, dryRun: false });
+    assert.equal(refused.isError, true);
+    assert.match(JSON.stringify(refused.content), /confirm/i);
+
+    const applied = await call(child, 'generate_profile', { source, name: 'quiet', outDir: out, dryRun: false, confirm: true });
+    assert.equal(applied.isError, undefined);
+  });
+
+  assert.ok(existsSync(join(out, 'writing-profile.json')));
+  assert.ok(existsSync(join(out, 'SKILL.md')));
 });

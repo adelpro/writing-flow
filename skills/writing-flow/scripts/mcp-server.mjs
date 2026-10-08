@@ -16,6 +16,7 @@ import { defaultRoots, readManifest, resolveProfile } from './profile.mjs';
 import { renderProfile } from './render.mjs';
 import { runDoctor } from './doctor.mjs';
 import { runGate } from './gate.mjs';
+import { generateProfile } from './generate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = resolve(HERE, '..', '..', '..');
@@ -62,6 +63,14 @@ const TOOLS = [
     inputSchema: schema(
       { profileDir: str, targetRoot: str, mode: str, cwd: str, dryRun: { type: 'boolean' }, force: { type: 'boolean' } },
       ['targetRoot'],
+    ),
+  },
+  {
+    name: 'generate_profile',
+    description: 'Generate a writing profile in the standard format the engine reads, from existing writing: a SKILL.md, a markdown file, or a directory containing one. Previews by default and reports every line it would drop as pipeline instruction. Applying requires confirm: true; pass includeAll to keep every line. Review the returned "excluded" list before applying — losing a voice to a bad split is worse than reading a list.',
+    inputSchema: schema(
+      { source: str, name: str, outDir: str, description: str, dryRun: { type: 'boolean' }, confirm: { type: 'boolean' }, includeAll: { type: 'boolean' } },
+      ['source', 'name'],
     ),
   },
 ];
@@ -223,6 +232,16 @@ const invoke = async (name, args = {}) => {
         force: args.force === true,
       });
     }
+    case 'generate_profile':
+      return generateProfile({
+        source: args.source,
+        name: args.name,
+        outDir: args.outDir ?? null,
+        description: args.description ?? null,
+        dryRun: args.dryRun !== false,
+        confirm: args.confirm === true,
+        includeAll: args.includeAll === true,
+      });
     default:
       throw new Error(`unknown tool: ${name}`);
   }

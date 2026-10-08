@@ -2,6 +2,14 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.2.0
+
+- `generate_profile`: build a profile in the standard format from existing writing — a
+  `SKILL.md`, a markdown file, or a directory containing one. Reports every line it would drop
+  as pipeline instruction, previews by default, and requires `confirm: true` to write.
+  `includeAll` keeps every line. Exposed as a seventh MCP tool and as a CLI
+  (`node skills/writing-flow/scripts/generate.mjs <source> --name <n> --out <dir>`).
+
 ## 0.1.0
 
 Initial release.

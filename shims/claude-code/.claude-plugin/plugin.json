@@ -1,6 +1,6 @@
 {
   "name": "writing-flow",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Portable voice-writing pipeline. Drafts in a profile's voice, runs the Arabic, anti-AI and provenance passes, and gates the result deterministically.",
   "author": {
     "name": "Adel Ben Yahia",
