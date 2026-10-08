@@ -1,0 +1,14 @@
+{
+  "name": "Neutral default house style",
+  "genre": "General professional English, with Modern Standard Arabic for Arabic pieces",
+  "register": [
+    "Plain professional prose, first person where a person is speaking. Concrete nouns and active verbs over abstractions and nominalisations.",
+    "Arabic is Modern Standard Arabic only, never dialect. Keep English identifiers, library names and code untranslated inline; on first use give the Arabic term followed by the English term in parentheses.",
+    "No marketing register, no hype, no calls to action, no decorative emoji, no filler transitions."
+  ],
+  "mechanics": {
+    "quotes": "straight",
+    "latinAbbrev": "parentheses",
+    "serialComma": true
+  }
+}

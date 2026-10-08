@@ -1,0 +1,9 @@
+{
+  "kind": "voice",
+  "name": "default",
+  "version": "1.0.0",
+  "languages": ["en", "ar-MSA"],
+  "houseStyle": "./house-style.json",
+  "arabicStages": ["fasaha", "voice-recheck"],
+  "requiredSkills": ["purple-cow-content", "fasaha", "avoid-ai-writing", "remove-ai-marks"]
+}
