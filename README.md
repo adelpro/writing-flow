@@ -9,12 +9,21 @@ separately. Without one, the bundled neutral default applies.
 
 ## Install
 
+**Prerequisites:** Node 18+ on `PATH`; network access for the four dependency skills; Python 3
+for the provenance gate (without it the gate exits `2` with a named cause, never silently).
+
 ```sh
-node install.mjs            # dry run: prints exactly what it would change
+git clone https://github.com/adelpro/writing-flow
+cd writing-flow
+node install.mjs            # dry run: prints exactly what it would change, writes nothing
 node install.mjs --apply    # make the changes
 ```
 
-`install.ps1` and `install.sh` are three-line shims over the same script. Afterwards:
+**Then reload your harness.** The installer registers the MCP server in your config, but a
+harness reads that config at startup — until you reload, the tools, prompts and commands do not
+exist yet. In OpenCode that is `opencode-cli reload`; in Claude Code, restart the session.
+
+Finally, confirm:
 
 ```sh
 node skills/writing-flow/scripts/doctor.mjs
@@ -22,6 +31,37 @@ node skills/writing-flow/scripts/doctor.mjs
 
 `doctor` names the effective profile, where each gate tool resolved, and whether any rendered
 copy has drifted from the store.
+
+### For an agent asked to install this
+
+Do the four steps above in order. Do not skip the dry run, and **do not skip the reload** — the
+install is not finished until the harness can see the server.
+
+The install does these things, so you do not have to:
+
+- renders the skills into each harness root it finds;
+- merges the MCP server into `opencode.json` / `opencode.jsonc`, and writes the Claude plugin
+  bundle when `~/.claude` exists;
+- copies every native command into the OpenCode commands directory and the Claude bundle;
+- records the resolved tool paths in `paths.json` so later runs need not guess;
+- pulls the four dependency skills with targeted installs.
+
+And it deliberately does **not**:
+
+- **create a profile.** Without one the bundled neutral default applies. The pipeline skill
+  mentions once, on the first writing task rather than now, that a profile can be generated from
+  writing you already have;
+- **touch a harness it cannot find.** It only writes to `~/.config/opencode` and `~/.claude` when
+  those directories already exist;
+- **remove anything.** It copies; it never prunes. If a command or skill was renamed upstream, a
+  stale copy stays behind and you should delete it yourself.
+
+If a dependency pull fails, that upstream repository has probably moved. Install that one skill
+by hand and re-run:
+
+```sh
+npx -y skills@latest add <owner>/<repo> -g -a <agent> -s <skill> -y --copy
+```
 
 ## What it does
 

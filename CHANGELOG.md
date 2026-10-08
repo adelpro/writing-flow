@@ -2,6 +2,16 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.6.1
+
+- The README's install section is now **agent-executable**, because pasting the repo link and
+  asking an agent to install it is a primary path. It states the prerequisites (Node 18+,
+  network, Python 3), the dry run, and — the step that was missing — **the harness reload**,
+  without which the MCP server is registered but invisible.
+- It also records what the installer deliberately does not do: create a profile, touch a harness
+  it cannot find, or remove anything. The last one matters: the installer copies but never
+  prunes, so a renamed command leaves a stale copy behind.
+
 ## 0.6.0
 
 - **Commands renamed: `/write` → `/flow-writing`, `/doctor` → `/flow-doctor`.** The filename is
