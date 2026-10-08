@@ -9,8 +9,9 @@ separately. Without one, the bundled neutral default applies.
 
 ## Install
 
-**Prerequisites:** Node 18+ on `PATH`; network access for the four dependency skills; Python 3
-for the provenance gate (without it the gate exits `2` with a named cause, never silently).
+**Prerequisites:** Node 22+ on `PATH` (18 and 20 are end-of-life); network access for the four
+dependency skills; Python 3 for the provenance gate (without it the gate exits `2` with a named
+cause, never silently).
 
 ```sh
 git clone https://github.com/adelpro/writing-flow
@@ -151,6 +152,53 @@ unrelated tooling, and a flat namespace has no other way to stay clear.
 
 The MCP prompts are named `write` and `doctor` and left unprefixed, because clients namespace
 prompts themselves (`/mcp__writing-flow__write`). Prefixing those would double it.
+
+### Other harnesses
+
+Three pieces travel separately, and knowing which is which saves confusion:
+
+| Piece | Carries | How it travels |
+|---|---|---|
+| **Skills** | the whole process, and the gate as a command | as files, into a skills directory |
+| **MCP server** | profile tools and prompts | one entry in the client's MCP config |
+| **Commands** | `/flow-writing`, `/flow-doctor` | as files — OpenCode and Claude Code only |
+
+**Any MCP client** — one entry, the widest-reaching piece:
+
+```json
+"writing-flow": {
+  "command": "node",
+  "args": ["<plugin-root>/skills/writing-flow/scripts/mcp-server.mjs"]
+}
+```
+
+Claude Code has a one-liner for exactly that:
+
+```sh
+claude mcp add writing-flow -- node <plugin-root>/skills/writing-flow/scripts/mcp-server.mjs
+```
+
+**Any client that reads Agent Skills** — copy the two skill directories into its skills root:
+
+```sh
+cp -r skills/writing-flow skills/voice-default <that-client's-skills-directory>
+```
+
+**Agent Plugins clients** — Codex, Cursor, Copilot in VS Code, Kiro — load the package directory
+as published. The root `plugin.json` is the manifest; no shim needed.
+
+**OpenCode** — `node install.mjs --apply` places all three pieces at once.
+
+**Gemini CLI** uses its own extension format (`.toml` commands, MCP config, `GEMINI.md`), so the
+skills do not carry over. The MCP server does, through its settings.
+
+**If a client can take only one piece, take the skills.** They carry the entire process, and the
+gate is runnable as a plain command from inside them — the pipeline is designed to work with no
+MCP server configured. The server is the layer that reaches clients with no skills system at all:
+in a chat UI it is the *only* option.
+
+Exact install syntax for Codex and Gemini CLI moves between versions — check their current docs.
+What is listed here is the payload you are placing, which is the part that will not change.
 
 **One rule matters when editing:** the engine lives inside `skills/writing-flow/scripts/`
 because the skills CLI copies skill directories flat. Anything the skill needs at run time must

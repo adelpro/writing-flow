@@ -1,0 +1,62 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Fast, hermetic, no network beyond npm. Proves the engine loads and behaves on a machine
+  # that has none of the third-party tools — which is what a fresh user actually has.
+  test:
+    name: ${{ matrix.os }} · node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: '22'
+          - os: ubuntu-latest
+            node: '24'
+          - os: windows-latest
+            node: '22'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --test
+
+  # The fast job skips its gate tests when the dependency skills are absent. This job installs
+  # them, so the gate is exercised against the real upstream tools rather than a stand-in.
+  integration:
+    name: full suite with the gate tools installed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install the dependency skills
+        run: |
+          npx -y skills@latest add adelpro/fasaha                   -g -a opencode -s fasaha            -y --copy
+          npx -y skills@latest add adelpro/purple-cow-content        -g -a opencode -s purple-cow-content -y --copy
+          npx -y skills@latest add conorbronsdon/avoid-ai-writing    -g -a opencode -s avoid-ai-writing   -y --copy
+          npx -y skills@latest add guillaumemeyer/watermarks-remover -g -a opencode -s remove-ai-marks    -y --copy
+
+      - name: Run the whole suite
+        run: node --test
+
+      # The point of this job is the gate. If the tools failed to resolve, the gate tests skip
+      # and the run above still passes — so assert that they did not.
+      - name: The gate tests must not silently skip
+        run: |
+          node --test tests/gate.test.mjs tests/mcp.test.mjs > gate.log 2>&1
+          cat gate.log
+          grep -q "# skipped 0" gate.log

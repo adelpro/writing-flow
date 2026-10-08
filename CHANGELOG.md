@@ -2,6 +2,13 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.8.0
+
+- **CI.** GitHub Actions: a fast hermetic job across ubuntu node 22/24 and windows node 22, plus an integration job that installs the four dependency skills so the gate is exercised against the real upstream tools. That job asserts the gate tests did not silently skip - the suite passes vacuously without the tools, which is exactly the failure a green badge would hide.
+- **Claude marketplace source pinned to the repository.** Was `source: ./ ` - permitted but undocumented. Now a github source derived from plugin.json's repository, so it cannot drift from the manifest.
+- Node floor raised to 22: 18 and 20 are end-of-life.
+- README gains per-harness instructions, including the honest note that the skills are the piece to take if a client can only take one.
+
 ## 0.7.0
 
 - **Two gaps closed that would have made the profile advisory rather than applied.** The

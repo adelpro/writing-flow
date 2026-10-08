@@ -34,7 +34,7 @@ test('the Claude files land at the plugin root, not in a bundle to copy', async 
   assert.ok(!paths.some((p) => p.includes('claude-code')), 'no copyable bundle directory remains');
 });
 
-test('marketplace.json is well formed and points at the repo root', async () => {
+test('marketplace.json is well formed and points at the repository', async () => {
   const { files } = await preview();
   const marketplace = JSON.parse(find(files, 'marketplace.json').content);
   const manifest = JSON.parse(readFileSync('plugin.json', 'utf8'));
@@ -44,7 +44,14 @@ test('marketplace.json is well formed and points at the repo root', async () => 
   assert.ok(Array.isArray(marketplace.plugins));
   assert.equal(marketplace.plugins.length, 1);
   assert.equal(marketplace.plugins[0].name, manifest.name, 'the entry name must equal the plugin manifest name');
-  assert.ok(!marketplace.plugins[0].source.includes('..'), 'a relative source must not contain ".."');
+
+  const source = marketplace.plugins[0].source;
+  const asText = typeof source === 'string' ? source : JSON.stringify(source);
+  assert.ok(!asText.includes('..'), 'a marketplace source must not contain ".."');
+
+  // Derived from the manifest's repository, because a relative "./" root is permitted but
+  // undocumented — every published example nests the plugin in a subdirectory.
+  assert.deepEqual(source, { source: 'github', repo: 'adelpro/writing-flow' });
 });
 
 test('no Cursor manifest is generated', async () => {

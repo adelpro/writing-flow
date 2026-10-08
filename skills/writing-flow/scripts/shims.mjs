@@ -68,6 +68,11 @@ export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = 
 
   // A marketplace entry's `source` is relative to the marketplace root and must not contain
   // "..", and the entry name must equal the plugin's manifest name.
+  //
+  // The entry points at the repository rather than at "./" because a github source is the
+  // documented form for a plugin that is its own repository; a relative source resolving to the
+  // marketplace root itself is permitted by the rules but appears in none of the examples.
+  const slug = /github\.com[/:]([^/]+)\/([^/.#]+)/.exec(manifest.repository ?? '');
   const marketplace = {
     name: manifest.name,
     description: manifest.description,
@@ -75,7 +80,7 @@ export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = 
     plugins: [
       {
         name: manifest.name,
-        source: './',
+        source: slug ? { source: 'github', repo: `${slug[1]}/${slug[2]}` } : './',
         description: manifest.description,
       },
     ],

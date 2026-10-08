@@ -8,7 +8,10 @@
   "plugins": [
     {
       "name": "writing-flow",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "adelpro/writing-flow"
+      },
       "description": "Portable voice-writing pipeline. Drafts in a profile's voice, runs the Arabic, anti-AI and provenance passes, and gates the result deterministically."
     }
   ]
