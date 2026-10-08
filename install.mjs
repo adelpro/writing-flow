@@ -73,6 +73,20 @@ const copyFile = (src, dest, dryRun, actions) => {
   }
 };
 
+/** Native slash commands. Not every harness reads them — see the README. */
+const commandFiles = (pluginRoot) => {
+  const dir = join(pluginRoot, 'commands');
+  return existsSync(dir)
+    ? readdirSync(dir).filter((name) => name.endsWith('.md')).sort()
+    : [];
+};
+
+const copyCommands = (pluginRoot, targetDir, dryRun, actions) => {
+  for (const name of commandFiles(pluginRoot)) {
+    copyFile(join(pluginRoot, 'commands', name), join(targetDir, name), dryRun, actions);
+  }
+};
+
 const copySkill = (srcDir, destRoot, dryRun, actions) => {
   for (const { abs, rel } of walk(srcDir, srcDir)) copyFile(abs, join(destRoot, rel), dryRun, actions);
 };
@@ -199,7 +213,7 @@ export async function install({
 
   const opencodeHome = join(home, '.config', 'opencode');
   if (existsSync(opencodeHome)) {
-    copyFile(join(pluginRoot, 'commands', 'write.md'), join(opencodeHome, 'commands', 'write.md'), dryRun, actions);
+    copyCommands(pluginRoot, join(opencodeHome, 'commands'), dryRun, actions);
 
     const { files } = await generateShims({ pluginRoot, outDir: join(pluginRoot, 'shims'), dryRun: true });
     const fragmentFile = files.find((f) => f.path.endsWith('mcp.opencode.json'));
@@ -222,9 +236,8 @@ export async function install({
     const bundle = join(claudeHome, 'plugins', 'writing-flow');
     copyFile(join(pluginRoot, '.claude-plugin', 'plugin.json'), join(bundle, '.claude-plugin', 'plugin.json'), dryRun, actions);
     copyFile(join(pluginRoot, '.mcp.json'), join(bundle, '.mcp.json'), dryRun, actions);
-    copyFile(join(pluginRoot, 'commands', 'write.md'), join(bundle, 'commands', 'write.md'), dryRun, actions);
+    copyCommands(pluginRoot, join(bundle, 'commands'), dryRun, actions);
   }
-
   return { ok: true, home: resolve(home), roots, actions, skipped };
 }
 

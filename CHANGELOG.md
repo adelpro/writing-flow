@@ -2,6 +2,17 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.5.0
+
+- **`commands/doctor.md`.** The diagnostic entry point now exists as a native command alongside
+  `write`, mirroring the MCP `doctor` prompt for clients that do not surface prompts.
+- The installer copies **every** file in `commands/` rather than a hardcoded `write.md`, to both
+  `~/.config/opencode/commands/` and the Claude plugin bundle. Adding a command no longer needs
+  an installer edit.
+- The README now documents which clients read `commands/` (Claude Code and Cursor do; OpenCode
+  does not) and gives the exact steps to install the OpenCode commands by hand. It also records
+  that the same files are `/write` in OpenCode and `/writing-flow:write` in Claude Code.
+
 ## 0.4.0
 
 - **MCP prompts: `write` and `doctor`.** The server now declares the `prompts` capability and

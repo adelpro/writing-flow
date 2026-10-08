@@ -63,6 +63,18 @@ test('never issues a bare global skills update', async () => {
   }
 });
 
+test('installs every native command, not just /write', async () => {
+  const home = scratchHome();
+  mkdirSync(join(home, '.config', 'opencode'), { recursive: true });
+  await install({ home, dependencies: [], runner: recorder().runner });
+  for (const command of ['write.md', 'doctor.md']) {
+    assert.ok(
+      existsSync(join(home, '.config', 'opencode', 'commands', command)),
+      `${command} must reach ~/.config/opencode/commands/`,
+    );
+  }
+});
+
 test('installs a Claude plugin bundle from the root-level Claude files', async () => {
   const home = scratchHome();
   mkdirSync(join(home, '.claude'), { recursive: true });
@@ -71,6 +83,7 @@ test('installs a Claude plugin bundle from the root-level Claude files', async (
   assert.ok(existsSync(join(bundle, '.claude-plugin', 'plugin.json')));
   assert.ok(existsSync(join(bundle, '.mcp.json')));
   assert.ok(existsSync(join(bundle, 'commands', 'write.md')));
+  assert.ok(existsSync(join(bundle, 'commands', 'doctor.md')));
   assert.equal(existsSync(join(bundle, 'skills')), false, 'skills must not be duplicated into the plugin bundle');
 });
 

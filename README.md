@@ -84,6 +84,29 @@ the profile actually in play rather than leaving the agent to discover it. Where
 not surface prompts, `commands/` and the skill's own triggers remain the entry points — prompts
 are protocol-portable, but no client is obliged to show them.
 
+### Commands
+
+`commands/` holds the native slash commands. Whether a client reads them depends on the client:
+
+| Client | Reads `commands/`? | Invocation | How it arrives |
+|---|---|---|---|
+| Claude Code | yes — plugin component | `/writing-flow:write`, `/writing-flow:doctor` | the plugin, or `install.mjs` |
+| Cursor | yes — Cursor's plugin format | Cursor's command surface | the plugin |
+| OpenCode | **no** | `/write`, `/doctor` | `install.mjs` copies it |
+| Codex, Copilot, Kiro | **no** | — | the skill, or the MCP prompts |
+
+**OpenCode does not read the repository's `commands/`.** It reads `~/.config/opencode/commands/`,
+and `install.mjs` copies every file there. To do it by hand:
+
+```sh
+mkdir -p ~/.config/opencode/commands
+cp commands/*.md ~/.config/opencode/commands/
+```
+
+Two names for the same files, and it is worth saying so wherever you point people: in **OpenCode**
+they are plain `/write` and `/doctor` (personal commands), while in **Claude Code** they are
+namespaced `/writing-flow:write` and `/writing-flow:doctor` (plugin-provided).
+
 **One rule matters when editing:** the engine lives inside `skills/writing-flow/scripts/`
 because the skills CLI copies skill directories flat. Anything the skill needs at run time must
 be inside its own directory.
