@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "writing-flow",
+  "version": "0.1.0",
+  "description": "Portable voice-writing pipeline. Drafts in a profile's voice, runs the Arabic, anti-AI and provenance passes, and gates the result deterministically.",
+  "author": {
+    "name": "Adel Ben Yahia",
+    "url": "https://github.com/adelpro"
+  },
+  "repository": "https://github.com/adelpro/writing-flow",
+  "license": "MIT",
+  "keywords": [
+    "agent-plugins",
+    "skills",
+    "mcp",
+    "writing",
+    "voice",
+    "editing"
+  ]
+}
