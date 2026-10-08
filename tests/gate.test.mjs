@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runGate } from '../skills/writing-flow/scripts/gate.mjs';
+import { runGate, formatReport } from '../skills/writing-flow/scripts/gate.mjs';
 import { resolveToolPaths } from '../skills/writing-flow/scripts/resolve-paths.mjs';
 
 const draft = (name) => `tests/fixtures/${name}`;
@@ -49,4 +49,15 @@ test('an Arabic draft does not crash the gate', { skip: skipUnlessInstalled }, a
   const r = await runGate({ path: draft('arabic.md') });
   assert.ok([0, 1].includes(r.code), `unexpected code ${r.code}`);
   assert.equal(r.gates.length, 2);
+});
+
+test('the human-readable report never hides an ambiguous profile', () => {
+  const report = formatReport({
+    code: 0,
+    ok: true,
+    gates: [],
+    profile: { name: 'mine', dir: 'D:/a/mine', resolvedBy: 'installed', ambiguous: true, candidates: ['D:/a/alpha', 'D:/a/beta'] },
+  });
+  assert.match(report, /AMBIGUOUS/);
+  assert.match(report, /alpha/);
 });

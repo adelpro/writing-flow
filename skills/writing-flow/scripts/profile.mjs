@@ -88,10 +88,12 @@ export function readManifest(dir) {
     houseStyle: data.houseStyle,
     arabicStages: asStringArray(data.arabicStages, 'arabicStages'),
     requiredSkills: asStringArray(data.requiredSkills, 'requiredSkills'),
+    // The packaged fallback marks itself, so installing a real profile never competes with it.
+    isDefault: data.isDefault === true,
   };
 }
 
-const scanTier = (roots, tier) => {
+const scanTier = (roots, tier, skipped = []) => {
   const found = [];
   for (const root of roots) {
     if (!root || !isDir(root)) continue;
@@ -99,8 +101,12 @@ const scanTier = (roots, tier) => {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
       const dir = join(root, entry.name);
       if (!existsSync(join(dir, MANIFEST))) continue;
-      const manifest = readManifest(dir);
-      found.push({ dir, manifest, tier });
+      try {
+        found.push({ dir, manifest: readManifest(dir), tier });
+      } catch (err) {
+        // A manifest belonging to another tool, or half-written, must not poison resolution.
+        skipped.push({ dir, reason: err.message });
+      }
     }
   }
   return found.sort((a, b) => (a.dir < b.dir ? -1 : a.dir > b.dir ? 1 : 0));
@@ -112,6 +118,7 @@ const scanTier = (roots, tier) => {
  * Ambiguity is reported only among candidates in the SAME tier.
  */
 export async function resolveProfile({ cwd = process.cwd(), roots = defaultRoots(), pluginRoot = null } = {}) {
+  const skipped = [];
   const shape = (candidate, resolvedBy, candidates, ambiguous) => ({
     dir: candidate.dir,
     manifest: candidate.manifest,
@@ -119,6 +126,7 @@ export async function resolveProfile({ cwd = process.cwd(), roots = defaultRoots
     resolvedBy,
     candidates: candidates.map((c) => c.dir),
     ambiguous,
+    warnings: skipped,
   });
 
   const project = join(cwd, MANIFEST);
@@ -127,16 +135,24 @@ export async function resolveProfile({ cwd = process.cwd(), roots = defaultRoots
     return shape(candidate, 'project', [candidate], false);
   }
 
-  const installed = scanTier(roots, 'installed');
+  // A profile that marks itself as the packaged default never competes with a real one, and
+  // never counts towards ambiguity. Without this, copying the default into a harness root
+  // would make every genuine profile look ambiguous.
+  const installedAll = scanTier(roots, 'installed', skipped);
+  const installed = installedAll.filter((c) => !c.manifest.isDefault);
   if (installed.length > 0) {
     return shape(installed[0], 'installed', installed, installed.length > 1);
   }
 
   const bundledRoots = pluginRoot ? [join(pluginRoot, 'skills')] : [];
-  const bundled = scanTier(bundledRoots, 'bundled');
+  const bundledAll = scanTier(bundledRoots, 'bundled', skipped);
+  const bundled = bundledAll.filter((c) => !c.manifest.isDefault);
   if (bundled.length > 0) {
     return shape(bundled[0], 'bundled', bundled, bundled.length > 1);
   }
+
+  const fallback = bundledAll[0] ?? installedAll[0] ?? null;
+  if (fallback) return shape(fallback, 'bundled', [fallback], false);
 
   throw new ProfileError('no voice profile found: no project override, no installed profile, no bundled default');
 }

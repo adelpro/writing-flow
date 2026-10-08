@@ -34,6 +34,9 @@ const readHouseStyle = (profileDir, manifest) => {
   }
 };
 
+/** Strip YAML frontmatter: the card is a paste-anywhere document, not a skill. */
+const stripFrontmatter = (text) => String(text).replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/, '').trim();
+
 /**
  * Render a self-contained, portable card for a profile: the artifact that works in clients
  * with neither MCP nor Agent Plugins support.
@@ -51,11 +54,11 @@ export function renderVoiceCard(manifest, voiceText, houseStyle = {}) {
     '',
     '## Voice',
     '',
-    String(voiceText).trim(),
+    stripFrontmatter(voiceText),
     '',
   ];
   if (register.length > 0) {
-    lines.push('## Register', '', ...register.map((r) => `- ${r}`), '');
+    lines.push('## House style', '', ...register.map((r) => `- ${r}`), '');
   }
   const mechanical = Object.entries(mechanics);
   if (mechanical.length > 0) {

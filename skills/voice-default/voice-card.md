@@ -7,11 +7,6 @@ profile's behalf.
 
 ## Voice
 
----
-name: voice-default
-description: The neutral default writing profile bundled with writing-flow. Plain professional English with a Modern Standard Arabic register. Used when no other voice profile is installed.
----
-
 # Default Writing Profile
 
 This is the profile `writing-flow` falls back to when nothing else is installed. It is
@@ -43,7 +38,7 @@ Copy this directory, rename it, replace this file's prose with your own voice, a
 and `languages` in `writing-profile.json`. Install it into a harness skill root and
 `writing-flow` will prefer it over this default.
 
-## Register
+## House style
 
 - Plain professional prose, first person where a person is speaking. Concrete nouns and active verbs over abstractions and nominalisations.
 - Arabic is Modern Standard Arabic only, never dialect. Keep English identifiers, library names and code untranslated inline; on first use give the Arabic term followed by the English term in parentheses.

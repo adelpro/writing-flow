@@ -30,8 +30,8 @@ const schema = (properties = {}, required = []) => ({ type: 'object', properties
 const TOOLS = [
   {
     name: 'get_profile',
-    description: 'Report the effective writing profile, its languages, its house-style path, and which rule resolved it. Cheap to call; never required before writing.',
-    inputSchema: schema(),
+    description: 'Report the effective writing profile, its languages, its house-style path, and which rule resolved it. Pass "cwd" as the user\'s project directory so a project override is visible. Cheap to call; never required before writing.',
+    inputSchema: schema({ cwd: str }),
   },
   {
     name: 'manage_profile',
@@ -48,19 +48,19 @@ const TOOLS = [
   },
   {
     name: 'run_gate',
-    description: 'Run both writing gates over a draft and return the structured result. Exit codes: 0 clean, 1 violation, 2 tool error. Checks mechanics only, never voice fidelity.',
-    inputSchema: schema({ path: str, skipMarks: { type: 'boolean' } }, ['path']),
+    description: 'Run both writing gates over a draft and return the structured result. Pass "cwd" as the user\'s project directory when "path" is relative. Exit codes: 0 clean, 1 violation, 2 tool error. Checks mechanics only, never voice fidelity.',
+    inputSchema: schema({ path: str, cwd: str, skipMarks: { type: 'boolean' } }, ['path']),
   },
   {
     name: 'doctor',
-    description: 'Report the effective profile, where each required skill resolved, which are missing, and whether any rendered copy has diverged from the store.',
-    inputSchema: schema({ store: str }),
+    description: 'Report the effective profile, where each required skill resolved, which are missing, and whether any rendered copy has diverged from the store. Pass "cwd" as the user\'s project directory.',
+    inputSchema: schema({ store: str, cwd: str }),
   },
   {
     name: 'render_profile',
     description: 'Render a profile from the store into a harness skill root, and emit its portable voice card. Dry run by default.',
     inputSchema: schema(
-      { profileDir: str, targetRoot: str, mode: str, dryRun: { type: 'boolean' }, force: { type: 'boolean' } },
+      { profileDir: str, targetRoot: str, mode: str, cwd: str, dryRun: { type: 'boolean' }, force: { type: 'boolean' } },
       ['targetRoot'],
     ),
   },
@@ -99,19 +99,27 @@ const locate = (name) => {
   return profiles.find((p) => p.name === name) ?? null;
 };
 
-const effective = async () => {
-  const r = await resolveProfile({ cwd: process.cwd(), pluginRoot: PLUGIN_ROOT });
+/**
+ * The client's working directory is not this server's: Agent Plugins pins a stdio server's cwd
+ * to the plugin root when `cwd` is omitted, and pins it explicitly when present. Every tool
+ * that touches the user's project therefore takes an explicit `cwd`.
+ */
+const projectDir = (value) => resolve(value ?? process.env.WRITING_FLOW_CWD ?? process.cwd());
+
+const effective = async (cwd) => {
+  const r = await resolveProfile({ cwd: projectDir(cwd), pluginRoot: PLUGIN_ROOT });
   return {
     name: r.manifest.name,
     version: r.manifest.version,
     languages: r.manifest.languages,
-    homeStyle: r.manifest.houseStyle,
+    houseStyle: r.manifest.houseStyle,
     houseStylePath: r.houseStylePath,
     requiredSkills: r.manifest.requiredSkills,
     dir: r.dir,
     resolvedBy: r.resolvedBy,
     ambiguous: r.ambiguous,
     candidates: r.candidates,
+    warnings: r.warnings,
   };
 };
 
@@ -119,7 +127,8 @@ const copyProfileFiles = (profileDir, targetDir) => {
   mkdirSync(targetDir, { recursive: true });
   const written = [];
   for (const entry of readdirSync(profileDir, { withFileTypes: true })) {
-    if (!entry.isFile() || entry.name === 'voice-card.md') continue;
+    // voice-card.md is generated output, and learned preferences are the user's own notes.
+    if (!entry.isFile() || entry.name === 'voice-card.md' || entry.name === PREFERENCES) continue;
     const destination = join(targetDir, entry.name);
     writeFileSync(destination, readFileSync(join(profileDir, entry.name)));
     written.push(destination);
@@ -145,13 +154,13 @@ const recordPreference = (profileDir, text) => {
   return { file, recorded: entry };
 };
 
-const handleManageProfile = async ({ action, name, projectDir }) => {
+const handleManageProfile = async ({ action, name, projectDir: target, cwd }) => {
   switch (action) {
     case 'current':
-      return effective();
+      return effective(cwd);
     case 'list': {
       const profiles = scanProfiles();
-      const current = await effective().catch(() => null);
+      const current = await effective(cwd).catch(() => null);
       return { profiles, current: current ? { name: current.name, resolvedBy: current.resolvedBy } : null };
     }
     case 'default': {
@@ -161,23 +170,24 @@ const handleManageProfile = async ({ action, name, projectDir }) => {
     }
     case 'set': {
       if (!name) throw new Error('action=set requires a profile "name"');
-      if (!projectDir) throw new Error('action=set requires a "projectDir"');
+      if (!target) throw new Error('action=set requires a "projectDir"');
       const profile = locate(name);
       if (!profile) throw new Error(`no installed profile named "${name}"`);
-      const written = copyProfileFiles(profile.dir, resolve(projectDir));
-      return { pinned: profile.name, projectDir: resolve(projectDir), written };
+      const written = copyProfileFiles(profile.dir, resolve(target));
+      return { pinned: profile.name, projectDir: resolve(target), written };
     }
     case 'reset': {
-      if (!projectDir) throw new Error('action=reset requires a "projectDir"');
+      if (!target) throw new Error('action=reset requires a "projectDir"');
       const removed = [];
-      for (const file of [PROJECT_MANIFEST, 'house-style.json', 'voice-card.md']) {
-        const target = join(resolve(projectDir), file);
-        if (existsSync(target)) {
-          rmSync(target, { force: true });
-          removed.push(target);
+      // Only what action=set writes. Removing anything else would delete files it never made.
+      for (const file of [PROJECT_MANIFEST, 'house-style.json']) {
+        const victim = join(resolve(target), file);
+        if (existsSync(victim)) {
+          rmSync(victim, { force: true });
+          removed.push(victim);
         }
       }
-      return { projectDir: resolve(projectDir), removed };
+      return { projectDir: resolve(target), removed };
     }
     default:
       throw new Error(`unknown action "${action}"; expected current, list, set, reset or default`);
@@ -187,7 +197,7 @@ const handleManageProfile = async ({ action, name, projectDir }) => {
 const invoke = async (name, args = {}) => {
   switch (name) {
     case 'get_profile':
-      return effective();
+      return effective(args.cwd);
     case 'manage_profile':
       return handleManageProfile(args);
     case 'learn_preference': {
@@ -196,15 +206,15 @@ const invoke = async (name, args = {}) => {
       }
       const text = String(args.text ?? '').trim();
       if (!text) throw new Error('learn_preference requires non-empty "text"');
-      const dir = args.profileDir ? resolve(args.profileDir) : (await effective()).dir;
+      const dir = args.profileDir ? resolve(args.profileDir) : (await effective(args.cwd)).dir;
       return recordPreference(dir, text);
     }
     case 'run_gate':
-      return runGate({ path: args.path, skipMarks: args.skipMarks === true });
+      return runGate({ path: args.path, cwd: projectDir(args.cwd), skipMarks: args.skipMarks === true });
     case 'doctor':
-      return runDoctor({ store: args.store ?? null });
+      return runDoctor({ store: args.store ?? null, cwd: projectDir(args.cwd) });
     case 'render_profile': {
-      const profileDir = args.profileDir ?? (await effective()).dir;
+      const profileDir = args.profileDir ?? (await effective(args.cwd)).dir;
       return renderProfile({
         profileDir,
         targetRoot: resolve(args.targetRoot),
@@ -218,14 +228,19 @@ const invoke = async (name, args = {}) => {
   }
 };
 
+/** Versions this server can speak. A client asking for anything else is answered with ours. */
+const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+
 const preamble = (method, params) => {
   if (method === 'initialize') {
+    const asked = params?.protocolVersion;
     return {
-      protocolVersion: params?.protocolVersion ?? PROTOCOL,
+      protocolVersion: SUPPORTED_PROTOCOLS.includes(asked) ? asked : PROTOCOL,
       capabilities: { tools: {} },
       serverInfo: SERVER_INFO,
     };
   }
+  if (method === 'ping') return {};
   if (method === 'tools/list') return { tools: TOOLS };
   return null;
 };

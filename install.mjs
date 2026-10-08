@@ -15,6 +15,11 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { resolveToolPaths } from './skills/writing-flow/scripts/resolve-paths.mjs';
+import { generateShims } from './skills/writing-flow/scripts/shims.mjs';
+
+const OPENCODE_TOKEN = '__PLUGIN_ROOT__';
+/** Dependency identifiers must never contain shell metacharacters or spaces. */
+const SAFE_IDENTIFIER = /^[A-Za-z0-9@/._-]+$/;
 
 const PLUGIN_ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -52,25 +57,26 @@ const harnessRoots = (home) => {
   return roots;
 };
 
-const copySkill = (srcDir, destRoot, dryRun, actions) => {
-  for (const { abs, rel } of walk(srcDir, srcDir)) {
-    const dest = join(destRoot, rel);
-    const content = readFileSync(abs);
-    const kind = !existsSync(dest)
-      ? 'create'
-      : sha256(readFileSync(dest)) === sha256(content)
-        ? 'unchanged'
-        : 'update';
-    actions.push({
-      kind,
-      target: dest,
-      detail: kind === 'unchanged' ? `unchanged ${dest}` : `${dryRun ? 'would write' : 'wrote'} ${dest}`,
-    });
-    if (!dryRun && kind !== 'unchanged') {
-      mkdirSync(dirname(dest), { recursive: true });
-      writeFileSync(dest, content);
-    }
+const copyFile = (src, dest, dryRun, actions) => {
+  const content = readFileSync(src);
+  const kind = !existsSync(dest)
+    ? 'create'
+    : sha256(readFileSync(dest)) === sha256(content)
+      ? 'unchanged'
+      : 'update';
+  actions.push({
+    kind,
+    target: dest,
+    detail: kind === 'unchanged' ? `unchanged ${dest}` : `${dryRun ? 'would write' : 'wrote'} ${dest}`,
+  });
+  if (!dryRun && kind !== 'unchanged') {
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(dest, content);
   }
+};
+
+const copySkill = (srcDir, destRoot, dryRun, actions) => {
+  for (const { abs, rel } of walk(srcDir, srcDir)) copyFile(abs, join(destRoot, rel), dryRun, actions);
 };
 
 const writeFileTracked = (target, content, dryRun, actions) => {
@@ -126,6 +132,10 @@ export async function install({
   );
 
   for (const dep of dependencies ?? []) {
+    if (!SAFE_IDENTIFIER.test(dep.skill) || !SAFE_IDENTIFIER.test(dep.repo)) {
+      skipped.push(`${dep.skill} (identifier contains characters unsafe to pass to a shell)`);
+      continue;
+    }
     if (existsSync(join(primary, dep.skill))) {
       skipped.push(dep.skill);
       continue;
@@ -138,6 +148,31 @@ export async function install({
       detail: dryRun ? `would run: ${command}` : `ran: ${command}`,
     });
     if (!dryRun) runner('npx', args);
+  }
+
+  // The client shims are generated from the single portable mcp.json, then wired in here.
+  // Without this step the package installs its skills but never reaches a harness's MCP.
+  const pluginRootPosix = resolve(pluginRoot).split('\\').join('/');
+
+  const opencodeHome = join(home, '.config', 'opencode');
+  if (existsSync(opencodeHome)) {
+    copyFile(join(pluginRoot, 'shims', 'opencode', 'commands', 'write.md'), join(opencodeHome, 'commands', 'write.md'), dryRun, actions);
+
+    const { files } = await generateShims({ pluginRoot, outDir: join(pluginRoot, 'shims'), dryRun: true });
+    const fragmentFile = files.find((f) => f.path.endsWith('mcp.opencode.json'));
+    const fragment = JSON.parse(fragmentFile.content.split(OPENCODE_TOKEN).join(pluginRootPosix));
+
+    const configPath = join(opencodeHome, 'opencode.json');
+    const config = existsSync(configPath)
+      ? JSON.parse(readFileSync(configPath, 'utf8'))
+      : { $schema: 'https://opencode.ai/schema.json' };
+    config.mcp = { ...(config.mcp ?? {}), ...fragment };
+    writeFileTracked(configPath, `${JSON.stringify(config, null, 2)}\n`, dryRun, actions);
+  }
+
+  const claudeHome = join(home, '.claude');
+  if (existsSync(claudeHome)) {
+    copySkill(join(pluginRoot, 'shims', 'claude-code'), join(claudeHome, 'plugins', 'writing-flow'), dryRun, actions);
   }
 
   return { ok: true, home: resolve(home), roots, actions, skipped };

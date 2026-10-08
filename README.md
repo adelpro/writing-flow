@@ -1,0 +1,91 @@
+# writing-flow
+
+A portable voice-writing pipeline, packaged as an [Agent Plugins](https://agent-plugins.org)
+1.0.0 plugin: a skill that owns the process, a bundled MCP server that manages profiles and
+runs the gates, and an installer that places it in whichever harness you use.
+
+The voice itself is not in here. This package is the engine; a voice is a *profile* you install
+separately. Without one, the bundled neutral default applies.
+
+## Install
+
+```sh
+node install.mjs            # dry run: prints exactly what it would change
+node install.mjs --apply    # make the changes
+```
+
+`install.ps1` and `install.sh` are three-line shims over the same script. Afterwards:
+
+```sh
+node skills/writing-flow/scripts/doctor.mjs
+```
+
+`doctor` names the effective profile, where each gate tool resolved, and whether any rendered
+copy has drifted from the store.
+
+## What it does
+
+Six stages, run in order:
+
+| Stage | Does |
+|---|---|
+| 0 | `purple-cow-content` — the angle and an A/B title, nothing more |
+| 1 | draft in the active profile's voice |
+| 2 | `fasaha` — Arabic pieces only |
+| 3 | voice re-check — restore what the Arabic pass flattened |
+| 4 | `avoid-ai-writing` — the anti-AI-ism pass |
+| 5 | `remove-ai-marks` — provenance marks |
+
+Stages 4 and 5 are checked by the gate, which exits `0` clean, `1` violation, `2` tool error.
+A missing tool is always `2`, never a silent pass.
+
+## Layout
+
+```
+plugin.json                      Agent Plugins 1.0.0 manifest
+skills/writing-flow/SKILL.md     the pipeline contract (no voice, no style rules)
+skills/writing-flow/scripts/     the engine: gate, profile, render, doctor, MCP server
+skills/voice-default/            the neutral fallback profile
+mcp.json                         the bundled stdio MCP server
+install.mjs                      the installer (+ .ps1 / .sh shims)
+shims/                           generated client configs, ignored by conformant clients
+```
+
+**One rule matters when editing:** the engine lives inside `skills/writing-flow/scripts/`
+because the skills CLI copies skill directories flat. Anything the skill needs at run time must
+be inside its own directory.
+
+## Making a profile
+
+A profile is a skill directory containing `writing-profile.json`:
+
+```json
+{
+  "kind": "voice",
+  "name": "myvoice",
+  "version": "1.0.0",
+  "languages": ["en"],
+  "houseStyle": "./house-style.json",
+  "arabicStages": ["fasaha", "voice-recheck"],
+  "requiredSkills": ["fasaha", "avoid-ai-writing", "remove-ai-marks"]
+}
+```
+
+`SKILL.md` holds the voice prose, `house-style.json` the mechanical rules the gate enforces.
+Installing that profile takes over the voice with no change to this package; removing it falls
+back to the default.
+
+## Tests
+
+```sh
+node --test
+```
+
+No runtime dependencies. Tests that need the third-party gate tools skip cleanly when those
+tools are absent.
+
+## Not in scope
+
+The gate checks **mechanics** — abbreviation placement, quote style, invisible Unicode. It does
+not measure whether text sounds like the intended voice, and nothing here should be read as
+claiming that.

@@ -60,3 +60,16 @@ test('a real run writes every shim under outDir', async () => {
   assert.ok(existsSync(join(out, 'claude-code', '.claude-plugin', 'plugin.json')));
   assert.ok(existsSync(join(out, 'opencode', 'mcp.opencode.json')));
 });
+
+test('the committed shims match what the generator produces', async () => {
+  const { files } = await generateShims({ pluginRoot: '.', outDir: 'shims' });
+  assert.ok(files.length >= 3);
+  for (const file of files) {
+    assert.ok(existsSync(file.path), `${file.path} is missing; run: node skills/writing-flow/scripts/shims.mjs --apply`);
+    assert.equal(
+      readFileSync(file.path, 'utf8'),
+      file.content,
+      `${file.path} is stale; run: node skills/writing-flow/scripts/shims.mjs --apply`,
+    );
+  }
+});

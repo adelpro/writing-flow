@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveToolPaths } from '../skills/writing-flow/scripts/resolve-paths.mjs';
@@ -162,5 +162,40 @@ test('an unknown tool is reported as an error result, not a crash', async () => 
   await withServer(async (child) => {
     const result = await call(child, 'no_such_tool', {});
     assert.equal(result.isError, true);
+  });
+});
+
+test('responds to ping, which clients use for liveness', async () => {
+  await withServer(async (child) => {
+    const response = await rpc(child, 'ping', {});
+    assert.deepEqual(response.result, {});
+  });
+});
+
+test('get_profile reports the house-style path under its documented key', async () => {
+  await withServer(async (child) => {
+    const result = await call(child, 'get_profile');
+    assert.ok(result.structuredContent.houseStylePath, 'houseStylePath must be present');
+    assert.equal(result.structuredContent.homeStyle, undefined, 'homeStyle was a typo');
+  });
+});
+
+test('run_gate resolves a relative draft against the project the caller names', { skip: skipUnlessInstalled }, async () => {
+  const project = scratch();
+  copyFileSync('tests/fixtures/clean.md', join(project, 'draft.md'));
+  await withServer(async (child) => {
+    const result = await call(child, 'run_gate', { path: 'draft.md', cwd: project });
+    assert.equal(result.structuredContent.code, 0, JSON.stringify(result.structuredContent));
+    assert.equal(result.structuredContent.draft, join(project, 'draft.md'));
+  });
+});
+
+test('get_profile sees a project override in the project the caller names', async () => {
+  const project = scratch();
+  copyFileSync('skills/voice-default/writing-profile.json', join(project, 'writing-profile.json'));
+  copyFileSync('skills/voice-default/house-style.json', join(project, 'house-style.json'));
+  await withServer(async (child) => {
+    const result = await call(child, 'get_profile', { cwd: project });
+    assert.equal(result.structuredContent.resolvedBy, 'project');
   });
 });

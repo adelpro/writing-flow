@@ -72,8 +72,8 @@ export async function runGate({
       profile = { name: manifest.name, dir, resolvedBy: 'explicit' };
       houseStylePath = resolve(dir, manifest.houseStyle);
     } else {
-      const r = await resolveProfile({ cwd, pluginRoot });
-      profile = { name: r.manifest.name, dir: r.dir, resolvedBy: r.resolvedBy, ambiguous: r.ambiguous };
+      const r = await resolveProfile({ cwd, pluginRoot, roots });
+      profile = { name: r.manifest.name, dir: r.dir, resolvedBy: r.resolvedBy, ambiguous: r.ambiguous, candidates: r.candidates };
       houseStylePath = r.houseStylePath;
     }
   } catch {
@@ -116,6 +116,11 @@ export function formatReport(result) {
     const detail = [g.summary, g.hits.join('; ')].filter(Boolean).join('  |  ');
     return `${g.id === 'avoid-ai-writing' ? 'gate4 avoid-ai-writing' : 'gate5 remove-ai-marks '} : ${g.state}  ${detail}`;
   });
+  if (result.profile?.ambiguous) {
+    lines.push(
+      `profile: AMBIGUOUS  ${result.profile.candidates.join(', ')}  —  using ${result.profile.dir}; pin one with manage_profile(action=set)`,
+    );
+  }
   if (lines.length === 0) lines.push(result.error ?? 'write-gate: BLOCKED');
   lines.push(result.code === 0 ? 'write-gate: CLEAN' : `write-gate: BLOCKED (worst exit ${result.code})`);
   return lines.join('\n');

@@ -67,6 +67,28 @@ test('reports ambiguity rather than silently picking one', async () => {
   assert.equal(r.candidates.length, 2);
 });
 
+test('the packaged default never makes a real profile ambiguous', async () => {
+  const root = quiet();
+  makeProfile(join(root, 'voice-default'), 'default', { isDefault: true });
+  makeProfile(join(root, 'mine'), 'mine');
+  const r = await resolveProfile({ cwd: root, roots: [root] });
+  assert.equal(r.resolvedBy, 'installed');
+  assert.equal(r.manifest.name, 'mine');
+  assert.equal(r.ambiguous, false);
+});
+
+test('a manifest belonging to another tool is skipped, not fatal', async () => {
+  const root = quiet();
+  makeProfile(join(root, 'mine'), 'mine');
+  mkdirSync(join(root, 'other-tool'), { recursive: true });
+  writeFileSync(join(root, 'other-tool', 'writing-profile.json'), '{"kind":"not-a-voice"}');
+  mkdirSync(join(root, 'half-written'), { recursive: true });
+  writeFileSync(join(root, 'half-written', 'writing-profile.json'), '{ not json');
+  const r = await resolveProfile({ cwd: root, roots: [root] });
+  assert.equal(r.manifest.name, 'mine');
+  assert.equal(r.warnings.length, 2);
+});
+
 test('readManifest throws naming the missing field', () => {
   const dir = quiet();
   writeFileSync(join(dir, 'writing-profile.json'), '{"kind":"voice"}');

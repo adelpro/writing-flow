@@ -48,3 +48,24 @@ test('the voice card is self-contained', () => {
   assert.match(card, /VOICE/);
   assert.ok(!card.includes('${'), 'no unresolved placeholders');
 });
+
+test('the voice card strips skill frontmatter and does not repeat the register', () => {
+  const card = renderVoiceCard(
+    { name: 'x', version: '1.0.0', languages: ['en'], houseStyle: './house-style.json', arabicStages: [], requiredSkills: [] },
+    '---\nname: x\ndescription: a skill\n---\n\n# Voice\n\nWrite plainly.\n',
+    { register: ['Plain professional prose.'] },
+  );
+  assert.ok(!card.includes('name: x'), 'frontmatter must not leak into the card');
+  assert.ok(!card.includes('description: a skill'));
+  assert.equal(card.match(/^## Register$/gm), null);
+});
+
+test('the committed default voice card matches what the generator produces', async () => {
+  const { readFileSync } = await import('node:fs');
+  const card = renderVoiceCard(
+    JSON.parse(readFileSync('skills/voice-default/writing-profile.json', 'utf8')),
+    readFileSync('skills/voice-default/SKILL.md', 'utf8'),
+    JSON.parse(readFileSync('skills/voice-default/house-style.json', 'utf8')),
+  );
+  assert.equal(readFileSync('skills/voice-default/voice-card.md', 'utf8'), card);
+});
