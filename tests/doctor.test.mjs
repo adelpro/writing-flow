@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runDoctor } from '../skills/writing-flow/scripts/doctor.mjs';
@@ -39,6 +39,16 @@ test('names the roots where the profile is rendered', async () => {
 test('does not count the store itself as a rendered copy', async () => {
   const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: ['skills'], store: STORE });
   assert.deepEqual(d.rendered, []);
+});
+
+test('a same-named directory with no manifest is not a rendered copy', async () => {
+  const root = scratch();
+  // A stale or unrelated directory that merely shares the profile's name.
+  mkdirSync(join(root, 'voice-default'), { recursive: true });
+  writeFileSync(join(root, 'voice-default', 'SKILL.md'), 'not a profile');
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [root], store: STORE });
+  assert.deepEqual(d.rendered, []);
+  assert.deepEqual(d.drift, []);
 });
 
 test('flags a rendered copy that no longer matches the store', async () => {

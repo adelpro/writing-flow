@@ -51,8 +51,6 @@ const walk = (dir, base) => {
 /** Harness skill roots present under a home directory. The first is always created. */
 const harnessRoots = (home) => {
   const roots = [join(home, '.agents', 'skills')];
-  const opencodeHome = join(home, '.config', 'opencode');
-  if (existsSync(opencodeHome)) roots.push(join(opencodeHome, 'skills'));
   if (existsSync(join(home, '.claude'))) roots.push(join(home, '.claude', 'skills'));
   return roots;
 };
@@ -94,6 +92,51 @@ const writeFileTracked = (target, content, dryRun, actions) => {
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, content);
   }
+};
+
+/** OpenCode merges its config files; the JSONC one is usually the real one. Try plain JSON first. */
+const CONFIG_CANDIDATES = ['opencode.json', 'opencode.jsonc'];
+
+const findConfig = (home) => {
+  for (const name of CONFIG_CANDIDATES) {
+    const candidate = join(home, name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(home, CONFIG_CANDIDATES[0]);
+};
+
+const escapeKey = (name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const alreadyPresent = (text, name) => new RegExp(`"${escapeKey(name)}"\\s*:`).test(text);
+
+/**
+ * Merge MCP servers into an OpenCode config without disturbing anything else.
+ *
+ * A JSONC config cannot be round-tripped through JSON.parse without destroying its comments,
+ * so the entry is inserted textually after the `mcp` object's opening brace.
+ */
+const mergeConfigText = (text, fragment) => {
+  const names = Object.keys(fragment);
+  if (names.every((name) => alreadyPresent(text, name))) return { text, changed: false };
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = null;
+  }
+  if (parsed) {
+    parsed.mcp = { ...(parsed.mcp ?? {}), ...fragment };
+    return { text: `${JSON.stringify(parsed, null, 2)}\n`, changed: true };
+  }
+
+  const opening = /"mcp"\s*:\s*\{/.exec(text);
+  if (!opening) throw new Error('opencode config has no "mcp" object to merge into');
+  const at = opening.index + opening[0].length;
+  const pending = names.filter((name) => !alreadyPresent(text, name));
+  const entries = pending.map((name) => `${JSON.stringify(name)}: ${JSON.stringify(fragment[name])}`);
+  const empty = /^\s*\}/.test(text.slice(at));
+  const insertion = empty ? `\n    ${entries.join(',\n    ')}\n  ` : `\n    ${entries.join(',\n    ')},`;
+  return { text: `${text.slice(0, at)}${insertion}${text.slice(at)}`, changed: true };
 };
 
 export async function install({
@@ -162,12 +205,13 @@ export async function install({
     const fragmentFile = files.find((f) => f.path.endsWith('mcp.opencode.json'));
     const fragment = JSON.parse(fragmentFile.content.split(OPENCODE_TOKEN).join(pluginRootPosix));
 
-    const configPath = join(opencodeHome, 'opencode.json');
-    const config = existsSync(configPath)
-      ? JSON.parse(readFileSync(configPath, 'utf8'))
-      : { $schema: 'https://opencode.ai/schema.json' };
-    config.mcp = { ...(config.mcp ?? {}), ...fragment };
-    writeFileTracked(configPath, `${JSON.stringify(config, null, 2)}\n`, dryRun, actions);
+    const configPath = findConfig(opencodeHome);
+    const existing = existsSync(configPath)
+      ? readFileSync(configPath, 'utf8')
+      : `${JSON.stringify({ $schema: 'https://opencode.ai/config.json', mcp: {} }, null, 2)}\n`;
+    const { text, changed } = mergeConfigText(existing, fragment);
+    if (changed) writeFileTracked(configPath, text, dryRun, actions);
+    else actions.push({ kind: 'unchanged', target: configPath, detail: `unchanged ${configPath}` });
   }
 
   const claudeHome = join(home, '.claude');

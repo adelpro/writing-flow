@@ -51,8 +51,13 @@ export async function runDoctor({ cwd = process.cwd(), pluginRoot = DEFAULT_PLUG
   const rendered = profile
     ? searchRoots.filter((root) => {
         const target = resolve(join(root, basename(profile.dir)));
-        // A profile is never its own rendered copy.
-        return existsSync(target) && target !== resolve(profile.dir);
+        // Only a directory that is itself a profile counts as a rendered copy. A same-named
+        // directory carrying no manifest is stale or unrelated, not drift.
+        return (
+          existsSync(target) &&
+          existsSync(join(target, 'writing-profile.json')) &&
+          target !== resolve(profile.dir)
+        );
       })
     : [];
 
