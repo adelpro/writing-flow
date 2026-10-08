@@ -1,0 +1,10 @@
+{
+  "writing-flow": {
+    "type": "local",
+    "command": [
+      "node",
+      "__PLUGIN_ROOT__/skills/writing-flow/scripts/mcp-server.mjs"
+    ],
+    "enabled": true
+  }
+}

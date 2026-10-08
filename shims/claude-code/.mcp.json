@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "writing-flow": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/skills/writing-flow/scripts/mcp-server.mjs"
+      ],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+    }
+  }
+}

@@ -377,6 +377,12 @@ real directories over junctions. The installer documents that and is safe to re-
 A CI check asserts that `mcp.json` and `.mcp.json` declare the same server names, commands
 and arguments, so the two configs cannot drift.
 
+**Implemented as generation, not as a check.** `skills/writing-flow/scripts/shims.mjs` produces
+both client configs from the single portable `mcp.json`, so there is nothing to keep in sync
+and nothing for a CI assertion to catch. A test asserts instead that every generated config
+declares exactly the servers `mcp.json` declares. This is stronger than the assertion this
+section originally specified.
+
 ---
 
 ## 5. Migration of this machine
