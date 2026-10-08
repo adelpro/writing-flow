@@ -224,3 +224,59 @@ test('generate_profile previews, refuses to apply without confirm, then applies'
   assert.ok(existsSync(join(out, 'writing-profile.json')));
   assert.ok(existsSync(join(out, 'SKILL.md')));
 });
+
+// --- prompts ---
+
+test('advertises the prompts capability', async () => {
+  const child = start();
+  try {
+    const hello = await rpc(child, 'initialize', { protocolVersion: '2025-06-18', capabilities: {} });
+    assert.ok(hello.result.capabilities.prompts, 'prompts must be declared in initialize');
+  } finally {
+    child.kill();
+  }
+});
+
+test('prompts/list advertises write and doctor', async () => {
+  await withServer(async (child) => {
+    const listed = await rpc(child, 'prompts/list', {});
+    assert.deepEqual(listed.result.prompts.map((p) => p.name).sort(), ['doctor', 'write']);
+    const write = listed.result.prompts.find((p) => p.name === 'write');
+    assert.equal(write.arguments[0].name, 'request');
+    assert.equal(write.arguments[0].required, true);
+  });
+});
+
+test('the write prompt carries the request and the active profile', async () => {
+  await withServer(async (child) => {
+    const profile = await call(child, 'get_profile');
+    const got = await rpc(child, 'prompts/get', { name: 'write', arguments: { request: 'a launch post' } });
+    const text = got.result.messages.map((m) => m.content.text).join('\n');
+    assert.equal(got.result.messages[0].role, 'user');
+    assert.match(text, /a launch post/);
+    assert.ok(text.includes(profile.structuredContent.name), 'the prompt must name the active profile');
+  });
+});
+
+test('the write prompt requires its request argument', async () => {
+  await withServer(async (child) => {
+    const missing = await rpc(child, 'prompts/get', { name: 'write', arguments: {} });
+    assert.equal(missing.error.code, -32602);
+  });
+});
+
+test('an unknown prompt is invalid params, not a crash', async () => {
+  await withServer(async (child) => {
+    const response = await rpc(child, 'prompts/get', { name: 'nope', arguments: {} });
+    assert.equal(response.error.code, -32602);
+  });
+});
+
+test('the doctor prompt asks for a plain-language diagnosis', async () => {
+  await withServer(async (child) => {
+    const got = await rpc(child, 'prompts/get', { name: 'doctor' });
+    const text = got.result.messages.map((m) => m.content.text).join('\n');
+    assert.match(text, /doctor/);
+    assert.match(text, /drift|missing/i);
+  });
+});

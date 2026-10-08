@@ -255,13 +255,109 @@ const preamble = (method, params) => {
     const asked = params?.protocolVersion;
     return {
       protocolVersion: SUPPORTED_PROTOCOLS.includes(asked) ? asked : PROTOCOL,
-      capabilities: { tools: {} },
+      capabilities: { tools: {}, prompts: { listChanged: false } },
       serverInfo: SERVER_INFO,
     };
   }
   if (method === 'ping') return {};
   if (method === 'tools/list') return { tools: TOOLS };
   return null;
+};
+
+/**
+ * Prompts are the user-invoked surface: the MCP counterpart of a slash command, and the only
+ * portable one — `commands/*.md` reaches Claude Code and Cursor, a prompt reaches any client
+ * that surfaces prompts. Unlike a static file, `prompts/get` is computed, so the workflow can
+ * name the profile that is active at the moment it is served.
+ */
+const PROMPTS = [
+  {
+    name: 'write',
+    title: 'Write in voice',
+    description: 'Run the voice-writing flow over a request: angle, draft in the active profile\'s voice, then the gates.',
+    arguments: [
+      { name: 'request', description: 'What the finished piece should do', required: true },
+    ],
+  },
+  {
+    name: 'doctor',
+    title: 'Diagnose the writing setup',
+    description: 'Report the effective profile, where each required skill resolved, what is missing, and any drift.',
+  },
+];
+
+class PromptError extends Error {}
+
+const composeWrite = async (request) => {
+  const lines = [
+    'Run the voice-writing flow over this request:',
+    '',
+    request,
+    '',
+    'Follow the `writing-flow` skill exactly. It owns the stage order, the bounded loop, the',
+    'register rule and the stop conditions. Do not restate them, and do not improvise the order.',
+    '',
+  ];
+
+  try {
+    const profile = await effective();
+    lines.push(
+      `Active profile when this prompt was served: ${profile.name} v${profile.version} (resolvedBy: ${profile.resolvedBy})`,
+      `- voice: ${join(profile.dir, 'SKILL.md')}`,
+      `- house style: ${profile.houseStylePath}`,
+      `- languages: ${profile.languages.join(', ') || 'unspecified'}`,
+      `- required skills: ${profile.requiredSkills.join(', ') || 'none declared'}`,
+      '',
+      'If you are working inside a project with its own writing-profile.json, confirm the active',
+      'profile with get_profile({ cwd }) before drafting — the server cannot see your workspace.',
+      '',
+    );
+  } catch (err) {
+    lines.push(`No profile could be resolved: ${String(err?.message ?? err)}`, '');
+  }
+
+  lines.push(
+    'Gates: run both in one shot with the `run_gate` tool, or as a command:',
+    `  node ${join(HERE, 'gate.mjs')} <draft-file>`,
+    'Exit 0 clean, 1 violation (name the gate and the offending rule, fix, re-run once),',
+    '2 tool error (report it; do not loop). Never deliver silently past a failing gate.',
+  );
+
+  return {
+    description: 'Voice-writing flow',
+    messages: [{ role: 'user', content: { type: 'text', text: lines.join('\n') } }],
+  };
+};
+
+const composeDoctor = () => ({
+  description: 'Diagnose the writing setup',
+  messages: [
+    {
+      role: 'user',
+      content: {
+        type: 'text',
+        text: [
+          'Diagnose the writing setup.',
+          '',
+          'Call the `doctor` tool, then explain the result in plain language: which profile is',
+          'effective and why, where each required skill resolved, anything missing, and any drift',
+          'between the store and a rendered copy.',
+          '',
+          'If something is missing or has drifted, give the exact command that fixes it.',
+        ].join('\n'),
+      },
+    },
+  ],
+});
+
+const resolvePrompt = async (name, args = {}) => {
+  if (name === 'write') {
+    const request = String(args.request ?? '').trim();
+    if (!request) throw new PromptError('prompt "write" requires the "request" argument');
+    return composeWrite(request);
+  }
+  if (name === 'doctor') return composeDoctor();
+  throw new PromptError(`unknown prompt: ${name}`);
 };
 
 const respond = async (request) => {
@@ -292,6 +388,18 @@ const respond = async (request) => {
   }
   const result = preamble(method, params);
   if (result) return { jsonrpc: '2.0', id, result };
+  if (method === 'prompts/list') {
+    return { jsonrpc: '2.0', id, result: { prompts: PROMPTS } };
+  }
+  if (method === 'prompts/get') {
+    try {
+      const prompt = await resolvePrompt(params?.name, params?.arguments ?? {});
+      return { jsonrpc: '2.0', id, result: prompt };
+    } catch (err) {
+      const code = err instanceof PromptError ? -32602 : -32603;
+      return { jsonrpc: '2.0', id, error: { code, message: String(err?.message ?? err) } };
+    }
+  }
   return { jsonrpc: '2.0', id, error: { code: -32601, message: `method not found: ${method}` } };
 };
 

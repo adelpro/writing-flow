@@ -69,6 +69,21 @@ hand-maintained — `shims.mjs` writes them all from `mcp.json` and `plugin.json
 Or, from a clone: `node install.mjs --apply` writes the bundle to
 `~/.claude/plugins/writing-flow/`.
 
+### Prompts (any MCP client)
+
+The server also exposes two MCP **prompts** — the user-invoked counterpart of a slash command,
+and the only portable one:
+
+| Prompt | Argument | What it does |
+|---|---|---|
+| `write` | `request` (required) | Runs the whole flow, carrying the profile that is active at the moment it is served |
+| `doctor` | — | Asks for the setup to be diagnosed in plain language, with the fixing command |
+
+A prompt is **computed at request time**, which is what `commands/write.md` cannot do: it names
+the profile actually in play rather than leaving the agent to discover it. Where a client does
+not surface prompts, `commands/` and the skill's own triggers remain the entry points — prompts
+are protocol-portable, but no client is obliged to show them.
+
 **One rule matters when editing:** the engine lives inside `skills/writing-flow/scripts/`
 because the skills CLI copies skill directories flat. Anything the skill needs at run time must
 be inside its own directory.

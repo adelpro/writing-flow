@@ -2,6 +2,18 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.4.0
+
+- **MCP prompts: `write` and `doctor`.** The server now declares the `prompts` capability and
+  answers `prompts/list` and `prompts/get`. A prompt is user-invoked, which is the MCP
+  counterpart of a slash command and the only portable one — `commands/*.md` reaches Claude
+  Code and Cursor, a prompt reaches any client that surfaces prompts.
+- `write` takes a required `request`, and unlike a static file it is **computed**: it names the
+  profile active at the moment it is served, with the voice path, house-style path, languages
+  and required skills, plus the gate command and exit contract.
+- `doctor` asks for the setup to be diagnosed in plain language, with the exact fixing command.
+- An unknown prompt or a missing required argument is `-32602`, not a crash.
+
 ## 0.3.0
 
 - **The repository is now a Claude Code plugin as well as an Agent Plugins 1.0.0 package.**
