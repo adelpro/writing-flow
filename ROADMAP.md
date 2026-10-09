@@ -111,6 +111,13 @@ version people clone.
 6. **Only ever run on Windows, by one person, with the dependencies present.** The suite skips its
    integration tests when `avoid-ai-writing`, `remove-ai-marks` or Python are absent. Nothing has
    yet been verified on a machine that had none of them.
+7. **`generate_profile` reads a file, never the session.** The skill instructs the agent to say,
+   once, that a personal profile "can be generated from writing the user already has" — but the
+   tool's `source` is a path (a `SKILL.md`, a markdown file, or a directory). Nothing reads the
+   harness's session or memory, and the suggestion carries no accept/decline branch: the bundled
+   default stays active until a real profile is installed, and acting on the suggestion needs the
+   user to name existing writing first. Bridging the conversation to a profile is the obvious next
+   step, and the parked service already assumed an agent that distils local writing.
 
 ### Deferred minors
 
