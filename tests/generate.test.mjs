@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateProfile } from '../skills/writing-flow/scripts/generate.mjs';
 import { readManifest } from '../skills/writing-flow/scripts/profile.mjs';
+import { renderVoiceCard } from '../skills/writing-flow/scripts/render.mjs';
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'wf-'));
 
@@ -96,6 +97,19 @@ test('writes a profile the engine accepts', async () => {
   assert.equal(manifest.houseStyle, './house-style.json');
   assert.ok(existsSync(join(out, 'SKILL.md')));
   assert.ok(existsSync(join(out, 'voice-card.md')));
+});
+
+test('writes a voice card that is exactly what the card checker regenerates', async () => {
+  const root = scratch();
+  const out = join(root, 'myvoice');
+  await generateProfile({ source: writeSource(root), name: 'myvoice', outDir: out, dryRun: false, confirm: true });
+  const written = readFileSync(join(out, 'voice-card.md'), 'utf8');
+  const expected = renderVoiceCard(
+    readManifest(out),
+    readFileSync(join(out, 'SKILL.md'), 'utf8'),
+    JSON.parse(readFileSync(join(out, 'house-style.json'), 'utf8')),
+  );
+  assert.equal(written, expected);
 });
 
 test('carries a house style found beside the source', async () => {

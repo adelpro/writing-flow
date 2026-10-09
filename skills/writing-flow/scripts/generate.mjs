@@ -152,7 +152,7 @@ export async function generateProfile({
     { path: join(target, 'SKILL.md'), content: built.skill },
     { path: join(target, 'writing-profile.json'), content: `${JSON.stringify(built.manifest, null, 2)}\n` },
     { path: join(target, 'house-style.json'), content: `${JSON.stringify(houseStyle, null, 2)}\n` },
-    { path: join(target, 'voice-card.md'), content: `${renderVoiceCard(built.manifest, built.skill, houseStyle)}\n` },
+    { path: join(target, 'voice-card.md'), content: renderVoiceCard(built.manifest, built.skill, houseStyle) },
   ];
 
   if (!dryRun) {

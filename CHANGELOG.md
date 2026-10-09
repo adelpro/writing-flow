@@ -4,6 +4,7 @@ All notable changes to this package. Versioning follows Semantic Versioning.
 
 ## Unreleased
 
+- **Fixed: `generate_profile` left a freshly written profile failing its own doctor.** The generated `voice-card.md` was written with a trailing newline the card checker does not expect, so `doctor` reported `stale card` on a profile the tool itself had just created. The card is now written exactly as `renderVoiceCard` produces it - the same bytes `render_profile` writes - and a test pins the two together.
 - **Fixed: doctor passed a profile whose files disagreed with each other.** A profile's own `voice-card.md` was never compared with its `SKILL.md`, and the `version:` in `SKILL.md` was never compared with `writing-profile.json`, so a hand-edited profile reported `OK` while its portable card still carried the old rules. Doctor now reports a stale card (with the `render.mjs card --write` command that fixes it) and a version mismatch. Doctor also warns, without failing the check, when lines of `SKILL.md` would be dropped by `generate_profile` as pipeline instruction. Covered by four new tests.
 
 ## 0.9.1
