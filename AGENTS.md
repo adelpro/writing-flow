@@ -36,7 +36,7 @@ drift from it.
 - `npm run doctor` — report the effective profile, resolved gate tools and any drift.
 - `node bin/install.mjs` (dry run) · `node bin/install.mjs --apply` — install into the harnesses
   found on this machine.
-- `npx -y writing-flow --apply` — the same install without a clone (npm path).
+- `npx -y @adelpro/writing-flow --apply` — the same install without a clone (npm path).
 
 ## Clients
 

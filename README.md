@@ -16,7 +16,7 @@ cause, never silently).
 One command, no clone:
 
 ```sh
-npx -y writing-flow --apply
+npx -y @adelpro/writing-flow --apply
 ```
 
 Or from a clone:

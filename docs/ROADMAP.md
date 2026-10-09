@@ -72,7 +72,7 @@ compares them against the generator and fails if they drift.
 ### Update path for users
 
 There is no auto-update. Users run `git pull` and `node bin/install.mjs --apply`, or install
-without a clone with `npx -y writing-flow --apply`. The skills travel
+without a clone with `npx -y @adelpro/writing-flow --apply`. The skills travel
 separately and can be updated on their own:
 
 ```sh
