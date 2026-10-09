@@ -2,6 +2,10 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## Unreleased
+
+- **Fixed: doctor passed a profile whose files disagreed with each other.** A profile's own `voice-card.md` was never compared with its `SKILL.md`, and the `version:` in `SKILL.md` was never compared with `writing-profile.json`, so a hand-edited profile reported `OK` while its portable card still carried the old rules. Doctor now reports a stale card (with the `render.mjs card --write` command that fixes it) and a version mismatch. Covered by three new tests.
+
 ## 0.9.1
 
 - **Reverted the Gemini CLI extension.** 0.9.0 added `gemini-extension.json`, `GEMINI.md` and two `.toml` commands; all of it is removed.

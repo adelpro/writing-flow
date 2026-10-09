@@ -1,14 +1,39 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readManifest, resolveProfile, ProfileError } from './profile.mjs';
 import { resolveToolPaths } from './resolve-paths.mjs';
-import { checkDrift } from './render.mjs';
+import { checkCard, checkDrift } from './render.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PLUGIN_ROOT = resolve(HERE, '..', '..', '..');
 
 const describeDrift = (entry) => `drift: ${entry.reason} at ${entry.path}`;
+
+/** The `version:` field of a SKILL.md frontmatter block, or null when it has none. */
+const frontmatterVersion = (text) => {
+  const block = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!block) return null;
+  const line = block[1].match(/^version:\s*["']?([^"'\r\n]+?)["']?\s*$/m);
+  return line ? line[1] : null;
+};
+
+/** Problems inside one profile directory: its voice card and its declared version. */
+const checkProfileFiles = (dir, manifestVersion) => {
+  const problems = [];
+  const card = checkCard({ profileDir: dir });
+  if (card) {
+    problems.push(`stale card: ${card.path} no longer matches SKILL.md (run: node render.mjs card ${dir} --write)`);
+  }
+  const skill = join(dir, 'SKILL.md');
+  if (existsSync(skill)) {
+    const declared = frontmatterVersion(readFileSync(skill, 'utf8'));
+    if (declared && declared !== manifestVersion) {
+      problems.push(`version mismatch: SKILL.md says ${declared}, writing-profile.json says ${manifestVersion}`);
+    }
+  }
+  return problems;
+};
 
 /**
  * Report, in one call, everything a person needs to explain their writing setup:
@@ -37,6 +62,8 @@ export async function runDoctor({ cwd = process.cwd(), pluginRoot = DEFAULT_PLUG
     if (err instanceof ProfileError) problems.push(`profile: ${err.message}`);
     else throw err;
   }
+
+  if (profile) problems.push(...checkProfileFiles(profile.dir, profile.version));
 
   const tools = toolPaths ?? (await resolveToolPaths({ cwd, pluginRoot, roots: roots ?? null }));
   const missing = [...(tools.missing ?? [])];

@@ -159,6 +159,17 @@ export async function checkDrift({ profileDir, roots = [] } = {}) {
   return { ok: drift.length === 0, drift };
 }
 
+/** Report a profile's own voice card when it no longer matches its SKILL.md. */
+export function checkCard({ profileDir } = {}) {
+  const source = resolve(profileDir);
+  const cardPath = join(source, CARD);
+  if (!existsSync(cardPath) || !existsSync(join(source, 'SKILL.md'))) return null;
+  const manifest = readManifest(source);
+  const voiceText = readFileSync(join(source, 'SKILL.md'), 'utf8');
+  const expected = renderVoiceCard(manifest, voiceText, readHouseStyle(source, manifest));
+  return readFileSync(cardPath, 'utf8') === expected ? null : { path: cardPath, reason: 'card-stale' };
+}
+
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]).endsWith('render.mjs');
 if (invokedDirectly) {
   const [command, dir, ...rest] = process.argv.slice(2);
