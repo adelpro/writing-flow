@@ -46,7 +46,7 @@ jobs:
       # Installs through the package's own installer, so CI exercises the path a user actually
       # takes rather than a parallel reimplementation of it.
       - name: Install with the package's own installer
-        run: node install.mjs --apply
+        run: node bin/install.mjs --apply
 
       - name: The gate entry points must exist
         run: |
