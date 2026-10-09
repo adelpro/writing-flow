@@ -40,6 +40,7 @@
     "mcp.json",
     "bin/",
     "commands/",
+    "opencode/",
     "skills/"
   ]
 }

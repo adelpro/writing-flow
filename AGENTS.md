@@ -14,7 +14,9 @@ and one MCP server.
   live here: the skills CLI copies skill directories out of the package, so anything needed at
   run time has to travel inside `skills/writing-flow/`.
 - `skills/voice-default/` — the bundled default profile.
-- `commands/` — the `/flow-*` commands the installer copies into a harness.
+- `commands/` — the `/flow-*` commands, read by the Claude Code plugin and copied by the installer.
+- `opencode/index.mjs` — the OpenCode plugin. It registers the skills, MCP server and commands
+  itself, and reads the files above at setup.
 - `bin/install.mjs` — the installer. `bin/install.ps1` and `bin/install.sh` are three-line shims
   that call it, so the logic is not maintained twice.
 - `tests/`, `README.md`, `CHANGELOG.md`, `docs/ROADMAP.md`.
@@ -43,7 +45,7 @@ drift from it.
 | Client | Reads | One command |
 |---|---|---|
 | Claude Code | `.claude-plugin/plugin.json` + `.mcp.json` | `/plugin marketplace add adelpro/writing-flow` |
-| OpenCode | `skills/` in a skill root + MCP merged from `shims/opencode` | `node bin/install.mjs --apply` |
+| OpenCode | `opencode/index.mjs` plugin: skills, MCP server, commands | add `opencode/` to `plugins` in `opencode.json` |
 | Agent Plugins clients (Cursor, Copilot/VS Code, Codex) | `plugin.json` + `skills/` + `mcp.json` | load the directory |
 | Any Agent Skills client | `skills/` | `npx -y skills@latest add adelpro/writing-flow -g -a <agent> -s writing-flow -s voice-default -y --copy` |
 

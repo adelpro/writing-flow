@@ -28,9 +28,9 @@ node bin/install.mjs            # dry run: prints exactly what it would change, 
 node bin/install.mjs --apply    # make the changes
 ```
 
-**Then reload your harness.** The installer registers the MCP server in your config, but a
-harness reads that config at startup — until you reload, the tools, prompts and commands do not
-exist yet. In OpenCode that is `opencode-cli reload`; in Claude Code, restart the session.
+**Then restart your harness.** A harness reads its config at startup, so until you restart it the
+tools, prompts and commands do not exist yet. In OpenCode and Claude Code, restart the app or
+session.
 
 Finally, confirm:
 
@@ -49,9 +49,8 @@ install is not finished until the harness can see the server.
 The install does these things, so you do not have to:
 
 - renders the skills into each harness root it finds;
-- merges the MCP server into `opencode.json` / `opencode.jsonc`, and writes the Claude plugin
-  bundle when `~/.claude` exists;
-- copies every native command into the OpenCode commands directory and the Claude bundle;
+- writes the Claude plugin bundle when `~/.claude` exists;
+- copies the native commands into the Claude bundle;
 - records the resolved tool paths in `paths.json` so later runs need not guess;
 - pulls the four dependency skills with targeted installs.
 
@@ -95,6 +94,7 @@ plugin.json                      Agent Plugins 1.0.0 manifest (source)
 mcp.json                         the bundled stdio MCP server (single source of truth)
 package.json                     npm metadata, the `writing-flow` bin, and scripts
 commands/                        the native commands: flow-writing, flow-doctor
+opencode/index.mjs               the OpenCode plugin: skills, MCP server and commands
 bin/install.mjs                  the installer (+ .ps1 / .sh shims)
 skills/writing-flow/SKILL.md     the pipeline contract (no voice, no style rules)
 skills/writing-flow/scripts/     the engine: gate, profile, render, doctor, MCP server
@@ -147,16 +147,11 @@ are protocol-portable, but no client is obliged to show them.
 |---|---|---|---|
 | Claude Code | yes — plugin component | `/writing-flow:flow-writing`, `/writing-flow:flow-doctor` | the plugin, or `bin/install.mjs` |
 | Cursor | yes — Cursor's plugin format | Cursor's command surface | the plugin |
-| OpenCode | **no** | `/flow-writing`, `/flow-doctor` | `bin/install.mjs` copies it |
+| OpenCode | via the plugin | `/flow-writing`, `/flow-doctor` | the plugin (`opencode/index.mjs`) registers them |
 | Codex, Copilot, Kiro | **no** | — | the skill, or the MCP prompts |
 
-**OpenCode does not read the repository's `commands/`.** It reads `~/.config/opencode/commands/`,
-and `bin/install.mjs` copies every file there. To do it by hand:
-
-```sh
-mkdir -p ~/.config/opencode/commands
-cp commands/*.md ~/.config/opencode/commands/
-```
+**OpenCode does not read the repository's `commands/`.** The OpenCode plugin registers the same two
+commands itself, from those files, so nothing needs copying.
 
 Two names for the same files, and it is worth saying so wherever you point people: in **OpenCode**
 they are `/flow-writing` and `/flow-doctor` — personal commands in a flat namespace — while in
@@ -217,7 +212,17 @@ cp -r skills/writing-flow skills/voice-default <that-client's-skills-directory>
 **Agent Plugins clients** — Codex, Cursor, Copilot in VS Code, Kiro — load the package directory
 as published. The root `plugin.json` is the manifest; no shim needed.
 
-**OpenCode** — `node bin/install.mjs --apply` places all three pieces at once.
+**OpenCode** — load the plugin. Add its folder to the `plugins` array in `opencode.json`:
+
+```jsonc
+{
+  "plugins": ["/absolute/path/to/writing-flow/opencode"]
+}
+```
+
+The plugin registers both skills, the MCP server, and the `/flow-writing` and `/flow-doctor`
+commands. Restart OpenCode after editing the config. Use a path that stays put: a clone under
+`/tmp` is cleared on reboot.
 
 **Antigravity** reads **Agent Plugins** packages directly — `plugin.json`, `skills/` and `mcp.json`
 — which is exactly what this repository already is, so there is nothing extra to ship for it.
