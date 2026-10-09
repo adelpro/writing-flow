@@ -33,6 +33,17 @@ test('author, when present, uses only name, email and url', () => {
   }
 });
 
+test('package.json and plugin.json agree on the version', () => {
+  assert.equal(read('package.json').version, read('plugin.json').version);
+});
+
+test('the npm files allowlist ships everything the installer reads at runtime', () => {
+  const normalised = read('package.json').files.map((f) => f.replace(/\/$/, ''));
+  for (const needed of ['plugin.json', 'mcp.json', 'bin', 'commands', 'skills']) {
+    assert.ok(normalised.includes(needed), `package.json "files" must include ${needed}`);
+  }
+});
+
 const MCP_ALLOWED = ['$schema', 'mcpServers'];
 const CWD_PATTERN = /^(?:\.\/|\$\{PLUGIN_ROOT\}(?:\/|$)|\$\{PLUGIN_DATA\}(?:\/|$))/;
 

@@ -2,3 +2,4 @@ node_modules/
 paths.json
 *.log
 .superpowers/
+docs/superpowers/

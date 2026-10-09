@@ -1,0 +1,39 @@
+{
+  "name": "writing-flow",
+  "version": "0.9.1",
+  "description": "Portable voice-writing pipeline. Drafts in a profile's voice, runs the Arabic, anti-AI and provenance passes, and gates the result deterministically.",
+  "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "Adel Ben Yahia",
+    "url": "https://github.com/adelpro"
+  },
+  "repository": "https://github.com/adelpro/writing-flow",
+  "homepage": "https://github.com/adelpro/writing-flow",
+  "keywords": [
+    "agent-plugins",
+    "skills",
+    "mcp",
+    "writing",
+    "voice",
+    "editing"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "writing-flow": "bin/install.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "build": "node skills/writing-flow/scripts/shims.mjs --apply",
+    "doctor": "node skills/writing-flow/scripts/doctor.mjs"
+  },
+  "files": [
+    "plugin.json",
+    "mcp.json",
+    "bin/",
+    "commands/",
+    "skills/"
+  ]
+}

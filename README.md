@@ -13,11 +13,19 @@ separately. Without one, the bundled neutral default applies.
 dependency skills; Python 3 for the provenance gate (without it the gate exits `2` with a named
 cause, never silently).
 
+One command, no clone:
+
+```sh
+npx -y writing-flow --apply
+```
+
+Or from a clone:
+
 ```sh
 git clone https://github.com/adelpro/writing-flow
 cd writing-flow
-node install.mjs            # dry run: prints exactly what it would change, writes nothing
-node install.mjs --apply    # make the changes
+node bin/install.mjs            # dry run: prints exactly what it would change, writes nothing
+node bin/install.mjs --apply    # make the changes
 ```
 
 **Then reload your harness.** The installer registers the MCP server in your config, but a
@@ -27,7 +35,7 @@ exist yet. In OpenCode that is `opencode-cli reload`; in Claude Code, restart th
 Finally, confirm:
 
 ```sh
-node skills/writing-flow/scripts/doctor.mjs
+npm run doctor          # or: node skills/writing-flow/scripts/doctor.mjs
 ```
 
 `doctor` names the effective profile, where each gate tool resolved, and whether any rendered
@@ -83,17 +91,23 @@ A missing tool is always `2`, never a silent pass.
 ## Layout
 
 ```
-plugin.json                      Agent Plugins 1.0.0 manifest
+plugin.json                      Agent Plugins 1.0.0 manifest (source)
 mcp.json                         the bundled stdio MCP server (single source of truth)
+package.json                     npm metadata, the `writing-flow` bin, and scripts
 commands/                        the native commands: flow-writing, flow-doctor
-.claude-plugin/                  Claude Code manifest and marketplace (generated)
-.mcp.json                        Claude Code MCP config (generated)
+bin/install.mjs                  the installer (+ .ps1 / .sh shims)
 skills/writing-flow/SKILL.md     the pipeline contract (no voice, no style rules)
 skills/writing-flow/scripts/     the engine: gate, profile, render, doctor, MCP server
 skills/voice-default/            the neutral fallback profile
-install.mjs                      the installer (+ .ps1 / .sh shims)
+docs/                            ROADMAP only — no planning documents are tracked
+.mcp.json                        Claude Code MCP config (generated)
+.claude-plugin/                  Claude Code manifest and marketplace (generated)
 shims/opencode/                  generated OpenCode fragment
 ```
+
+`AGENTS.md` carries the full source-vs-generated map. Anything generated is regenerated with
+`npm run build`; the committed copies are marked so in `.gitattributes`, and a test fails if they
+drift from `mcp.json` and `plugin.json`.
 
 **One repo, three client surfaces.** The root is an Agent Plugins package for Codex, Cursor,
 Copilot/VS Code and Kiro; `.claude-plugin/` makes it a Claude Code plugin and marketplace; and
@@ -107,7 +121,7 @@ hand-maintained — `shims.mjs` writes them all from `mcp.json` and `plugin.json
 /plugin install writing-flow@writing-flow
 ```
 
-Or, from a clone: `node install.mjs --apply` writes the bundle to
+Or, from a clone: `node bin/install.mjs --apply` writes the bundle to
 `~/.claude/plugins/writing-flow/`.
 
 ### Prompts (any MCP client)
@@ -131,13 +145,13 @@ are protocol-portable, but no client is obliged to show them.
 
 | Client | Reads `commands/`? | Invocation | How it arrives |
 |---|---|---|---|
-| Claude Code | yes — plugin component | `/writing-flow:flow-writing`, `/writing-flow:flow-doctor` | the plugin, or `install.mjs` |
+| Claude Code | yes — plugin component | `/writing-flow:flow-writing`, `/writing-flow:flow-doctor` | the plugin, or `bin/install.mjs` |
 | Cursor | yes — Cursor's plugin format | Cursor's command surface | the plugin |
-| OpenCode | **no** | `/flow-writing`, `/flow-doctor` | `install.mjs` copies it |
+| OpenCode | **no** | `/flow-writing`, `/flow-doctor` | `bin/install.mjs` copies it |
 | Codex, Copilot, Kiro | **no** | — | the skill, or the MCP prompts |
 
 **OpenCode does not read the repository's `commands/`.** It reads `~/.config/opencode/commands/`,
-and `install.mjs` copies every file there. To do it by hand:
+and `bin/install.mjs` copies every file there. To do it by hand:
 
 ```sh
 mkdir -p ~/.config/opencode/commands
@@ -203,7 +217,7 @@ cp -r skills/writing-flow skills/voice-default <that-client's-skills-directory>
 **Agent Plugins clients** — Codex, Cursor, Copilot in VS Code, Kiro — load the package directory
 as published. The root `plugin.json` is the manifest; no shim needed.
 
-**OpenCode** — `node install.mjs --apply` places all three pieces at once.
+**OpenCode** — `node bin/install.mjs --apply` places all three pieces at once.
 
 **Antigravity** reads **Agent Plugins** packages directly — `plugin.json`, `skills/` and `mcp.json`
 — which is exactly what this repository already is, so there is nothing extra to ship for it.
@@ -267,7 +281,7 @@ It never blocks the writing, and it never repeats.
 ## Tests
 
 ```sh
-node --test
+npm test          # node --test
 ```
 
 No runtime dependencies. Tests that need the third-party gate tools skip cleanly when those

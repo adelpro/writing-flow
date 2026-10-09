@@ -15,14 +15,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { resolveToolPaths } from './skills/writing-flow/scripts/resolve-paths.mjs';
-import { generateShims } from './skills/writing-flow/scripts/shims.mjs';
+import { resolveToolPaths } from '../skills/writing-flow/scripts/resolve-paths.mjs';
+import { generateShims } from '../skills/writing-flow/scripts/shims.mjs';
 
 const OPENCODE_TOKEN = '__PLUGIN_ROOT__';
 /** Dependency identifiers must never contain shell metacharacters or spaces. */
 const SAFE_IDENTIFIER = /^[A-Za-z0-9@/._-]+$/;
 
-const PLUGIN_ROOT = dirname(fileURLToPath(import.meta.url));
+// The installer lives in bin/, so the package root is one level up.
+const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export const DEPENDENCIES = [
   { skill: 'fasaha', repo: 'adelpro/fasaha' },
@@ -252,17 +253,20 @@ export async function install({
     }
   }
 
-  // The client shims are generated from the single portable mcp.json, then wired in here.
-  // Without this step the package installs its skills but never reaches a harness's MCP.
+  // Client shims are derived from the portable mcp.json + plugin.json and generated in memory,
+  // so the installer never depends on shipped copies (npm drops dot-prefixed entries) and never
+  // writes back into the package directory. Without this step the skills install but the MCP
+  // server never reaches a harness.
   const pluginRootPosix = resolve(pluginRoot).split('\\').join('/');
+  const shims = await generateShims({ pluginRoot, dryRun: true });
+  const shimFile = (suffix) =>
+    shims.files.find((file) => file.path.split('\\').join('/').endsWith(suffix)).content;
 
   const opencodeHome = join(home, '.config', 'opencode');
   if (existsSync(opencodeHome)) {
     copyCommands(pluginRoot, join(opencodeHome, 'commands'), dryRun, actions);
 
-    const { files } = await generateShims({ pluginRoot, outDir: join(pluginRoot, 'shims'), dryRun: true });
-    const fragmentFile = files.find((f) => f.path.endsWith('mcp.opencode.json'));
-    const fragment = JSON.parse(fragmentFile.content.split(OPENCODE_TOKEN).join(pluginRootPosix));
+    const fragment = JSON.parse(shimFile('/shims/opencode/mcp.opencode.json').split(OPENCODE_TOKEN).join(pluginRootPosix));
 
     const configPath = findConfig(opencodeHome);
     const existing = existsSync(configPath)
@@ -275,12 +279,12 @@ export async function install({
 
   const claudeHome = join(home, '.claude');
   if (existsSync(claudeHome)) {
-    // Assembled from the root-level Claude files. No skills are copied here on purpose: the
-    // skills already live in ~/.claude/skills, and a plugin copy would namespace and duplicate
-    // them, which is the trigger duplication this package avoids everywhere else.
+    // Assembled from the generated shims. No skills are copied here on purpose: the skills
+    // already live in ~/.claude/skills, and a plugin copy would namespace and duplicate them,
+    // which is the trigger duplication this package avoids everywhere else.
     const bundle = join(claudeHome, 'plugins', 'writing-flow');
-    copyFile(join(pluginRoot, '.claude-plugin', 'plugin.json'), join(bundle, '.claude-plugin', 'plugin.json'), dryRun, actions);
-    copyFile(join(pluginRoot, '.mcp.json'), join(bundle, '.mcp.json'), dryRun, actions);
+    writeFileTracked(join(bundle, '.claude-plugin', 'plugin.json'), shimFile('/.claude-plugin/plugin.json'), dryRun, actions);
+    writeFileTracked(join(bundle, '.mcp.json'), shimFile('/.mcp.json'), dryRun, actions);
     copyCommands(pluginRoot, join(bundle, 'commands'), dryRun, actions);
   }
   return { ok: true, home: resolve(home), roots, actions, skipped };

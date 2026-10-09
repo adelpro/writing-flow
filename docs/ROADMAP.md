@@ -53,15 +53,16 @@ Four properties worth knowing:
 ### What ships in a release
 
 ```sh
-# 1. bump plugin.json version
+# 1. bump the version in plugin.json AND package.json (a test asserts they agree)
 # 2. add the CHANGELOG entry
 # 3. regenerate the generated client files (they embed the version)
-node skills/writing-flow/scripts/shims.mjs --apply
+npm run build
 # 4. prove it
-node --test
+npm test
 # 5. install and verify locally
-node install.mjs --apply && node ~/.agents/skills/writing-flow/scripts/doctor.mjs
+node bin/install.mjs --apply && npm run doctor
 # 6. commit
+# 7. publish, when intended: npm publish
 ```
 
 `plugin.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `.mcp.json`
@@ -70,7 +71,8 @@ compares them against the generator and fails if they drift.
 
 ### Update path for users
 
-There is no auto-update. Users run `git pull` and `node install.mjs --apply`. The skills travel
+There is no auto-update. Users run `git pull` and `node bin/install.mjs --apply`, or install
+without a clone with `npx -y writing-flow --apply`. The skills travel
 separately and can be updated on their own:
 
 ```sh

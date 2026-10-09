@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEPENDENCIES, install } from '../install.mjs';
+import { DEPENDENCIES, install } from '../bin/install.mjs';
 
 const scratchHome = () => mkdtempSync(join(tmpdir(), 'wf-home '));
 
@@ -164,4 +164,22 @@ test('merges into an empty mcp object without producing invalid JSON', async () 
   const text = readFileSync(join(dir, 'opencode.jsonc'), 'utf8');
   const parsed = JSON.parse(text.replace(/^\s*\/\/.*$/gm, ''));
   assert.ok(parsed.mcp['writing-flow'], text);
+});
+
+test('assembles the Claude bundle from generated shims when the package ships no dotfiles', async () => {
+  // An npm tarball drops dot-prefixed entries, so the package must not depend on a shipped
+  // .claude-plugin/ or .mcp.json: the installer derives them from plugin.json + mcp.json.
+  const home = scratchHome();
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  const pkg = mkdtempSync(join(tmpdir(), 'wf-pkg-'));
+  for (const entry of ['plugin.json', 'mcp.json', 'commands', 'skills']) {
+    cpSync(join(process.cwd(), entry), join(pkg, entry), { recursive: true });
+  }
+  assert.equal(existsSync(join(pkg, '.claude-plugin')), false, 'fixture must not ship dotfiles');
+
+  await install({ home, pluginRoot: pkg, dependencies: [], runner: recorder().runner });
+
+  const bundle = join(home, '.claude', 'plugins', 'writing-flow');
+  assert.ok(existsSync(join(bundle, '.claude-plugin', 'plugin.json')));
+  assert.ok(existsSync(join(bundle, '.mcp.json')));
 });
