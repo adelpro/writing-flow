@@ -82,38 +82,35 @@ npx -y skills@latest add adelpro/writing-flow -g -a opencode -s writing-flow -s 
 That installs **skills only** — no commands, no MCP server, no `paths.json`. The installer places
 all four pieces.
 
-### Missing infrastructure
+### CI
 
-**There is no CI.** The suite runs only when someone types `node --test`. That is the single
-biggest gap between "published" and "maintained": nothing stops a red commit from being the
-version people clone.
+`.github/workflows/test.yml` runs the hermetic suite on ubuntu (Node 22 and 24) and windows
+(Node 22), and an integration job that installs the dependencies through the package's own
+installer, then asserts the gate tests did not silently skip. On the hermetic runners the gate
+tests skip by design — the tools are not installed there — so a green hermetic run proves the
+engine loads and behaves, and the integration job is what actually exercises the gate.
 
 ---
 
 ## Known gaps, in priority order
 
-1. **No CI.** A GitHub Actions job running `node --test` on Linux is the first task. Note the
-   caveat below: four integration tests skip without the third-party tools, so Linux coverage
-   would be weaker than Windows unless a fixture double is added.
-2. **The installer copies but never prunes.** Renaming or removing a command or skill leaves a
+1. **The installer copies but never prunes.** Renaming or removing a command or skill leaves a
    stale copy in the user's directories. It bit us once already (`/write` → `/flow-writing`).
    The fix is a written-manifest of what the installer created, so it can remove only what it
    owns.
-3. **`.claude-plugin/marketplace.json` uses `"source": "./"`.** Logically correct and permitted
-   by the documented rules — a relative path from the marketplace root, containing no `..` — but
-   every documented example nests the plugin in a subdirectory. **It has not been validated**,
-   because that needs Claude Code installed. If `claude plugin validate` rejects it, the fallback
-   is `{ "source": "github", "repo": "adelpro/writing-flow" }`.
-4. **`run_gate` takes a file path, not text.** Fine for a coding agent; it blocks every use where
+2. **`.claude-plugin/marketplace.json` is unvalidated.** It ships the documented `github` source
+   form (`{ "source": "github", "repo": "adelpro/writing-flow" }`), not the relative `"./"`
+   drafted first. A `claude plugin validate` run is still outstanding.
+3. **`run_gate` takes a file path, not text.** Fine for a coding agent; it blocks every use where
    there is no filesystem — including a future hosted service, and the simple "paste this draft
    and gate it" case. Small change, disproportionate reach.
-5. **Gate 5 needs Python.** Deliberate: the authoritative check is `remove-ai-marks`'s script, and
+4. **Gate 5 needs Python.** Deliberate: the authoritative check is `remove-ai-marks`'s script, and
    a Node reimplementation would be a second authority that could disagree. A missing Python is
    exit `2` with a named cause, never a silent pass.
-6. **Only ever run on Windows, by one person, with the dependencies present.** The suite skips its
-   integration tests when `avoid-ai-writing`, `remove-ai-marks` or Python are absent. Nothing has
-   yet been verified on a machine that had none of them.
-7. **`generate_profile` reads a file, never the session.** The skill instructs the agent to say,
+5. **Never verified on a machine without the dependency tools.** The suite skips its integration
+   tests when `avoid-ai-writing`, `remove-ai-marks` or Python are absent, and no run has yet been
+   done on a host that had none of them.
+6. **`generate_profile` reads a file, never the session.** The skill instructs the agent to say,
    once, that a personal profile "can be generated from writing the user already has" — but the
    tool's `source` is a path (a `SKILL.md`, a markdown file, or a directory). Nothing reads the
    harness's session or memory, and the suggestion carries no accept/decline branch: the bundled
