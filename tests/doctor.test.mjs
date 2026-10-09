@@ -94,3 +94,14 @@ test('flags a SKILL.md version that differs from the manifest', async () => {
   const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [], store: dir });
   assert.ok(d.problems.some((p) => /version mismatch: SKILL\.md says 9\.9\.9/.test(p)), manifest.version);
 });
+
+test('warns about SKILL.md lines that generate_profile would drop, without failing the check', async () => {
+  const dir = profileCopy();
+  writeFileSync(
+    join(dir, 'SKILL.md'),
+    '---\nname: voice\n---\n\nI write plainly about tools.\n\nRun the `remove-ai-marks` skill on every finished piece.\n',
+  );
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [], store: dir });
+  assert.ok(d.warnings.some((w) => /would be dropped by generate_profile/.test(w)));
+  assert.ok(!d.problems.some((p) => /dropped/.test(p)));
+});

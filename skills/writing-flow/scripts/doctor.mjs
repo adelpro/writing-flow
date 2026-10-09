@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { readManifest, resolveProfile, ProfileError } from './profile.mjs';
 import { resolveToolPaths } from './resolve-paths.mjs';
 import { checkCard, checkDrift } from './render.mjs';
+import { generateProfile } from './generate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PLUGIN_ROOT = resolve(HERE, '..', '..', '..');
@@ -18,9 +19,13 @@ const frontmatterVersion = (text) => {
   return line ? line[1] : null;
 };
 
-/** Problems inside one profile directory: its voice card and its declared version. */
-const checkProfileFiles = (dir, manifestVersion) => {
+/**
+ * Problems and warnings inside one profile directory: its voice card, its declared version,
+ * and lines of its SKILL.md that generate_profile would drop as pipeline instruction.
+ */
+const checkProfileFiles = async (dir, manifestVersion, manifestName) => {
   const problems = [];
+  const warnings = [];
   const card = checkCard({ profileDir: dir });
   if (card) {
     problems.push(`stale card: ${card.path} no longer matches SKILL.md (run: node render.mjs card ${dir} --write)`);
@@ -31,8 +36,12 @@ const checkProfileFiles = (dir, manifestVersion) => {
     if (declared && declared !== manifestVersion) {
       problems.push(`version mismatch: SKILL.md says ${declared}, writing-profile.json says ${manifestVersion}`);
     }
+    const preview = await generateProfile({ source: skill, name: manifestName });
+    if (preview.excluded.length > 0) {
+      warnings.push(`${preview.excluded.length} line(s) of SKILL.md would be dropped by generate_profile as pipeline instruction (run the generator preview to review them)`);
+    }
   }
-  return problems;
+  return { problems, warnings };
 };
 
 /**
@@ -63,7 +72,12 @@ export async function runDoctor({ cwd = process.cwd(), pluginRoot = DEFAULT_PLUG
     else throw err;
   }
 
-  if (profile) problems.push(...checkProfileFiles(profile.dir, profile.version));
+  const warnings = [];
+  if (profile) {
+    const files = await checkProfileFiles(profile.dir, profile.version, profile.name);
+    problems.push(...files.problems);
+    warnings.push(...files.warnings);
+  }
 
   const tools = toolPaths ?? (await resolveToolPaths({ cwd, pluginRoot, roots: roots ?? null }));
   const missing = [...(tools.missing ?? [])];
@@ -107,6 +121,7 @@ export async function runDoctor({ cwd = process.cwd(), pluginRoot = DEFAULT_PLUG
     rendered,
     drift,
     problems,
+    warnings,
   };
 }
 
@@ -127,6 +142,7 @@ if (invokedDirectly) {
     process.stdout.write(`gate5   : ${report.gate5 ? report.gate5.path : 'MISSING'}\n`);
     process.stdout.write(`python  : ${report.python ?? 'MISSING'}\n`);
     process.stdout.write(`rendered: ${report.rendered.length === 0 ? 'nowhere' : report.rendered.join(', ')}\n`);
+    for (const warning of report.warnings) process.stdout.write(`warning : ${warning}\n`);
     for (const problem of report.problems) process.stdout.write(`problem : ${problem}\n`);
     process.stdout.write(report.ok ? 'doctor: OK\n' : 'doctor: PROBLEMS\n');
   }
