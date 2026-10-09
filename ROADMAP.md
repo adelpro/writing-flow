@@ -2,7 +2,7 @@
 
 Where this package is, what it deliberately is not yet, and how it changes.
 
-**Current version: 0.7.0 — pre-1.0.** While the major version is 0, a minor bump may change
+**Current version: 0.9.1 — pre-1.0.** While the major version is 0, a minor bump may change
 behaviour; a patch bump will not.
 
 ---
