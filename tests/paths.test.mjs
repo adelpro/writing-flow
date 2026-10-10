@@ -3,9 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveToolPaths, writePathsJson } from '../skills/writing-flow/scripts/resolve-paths.mjs';
+import { probePython, resolveToolPaths, writePathsJson } from '../skills/writing-flow/scripts/resolve-paths.mjs';
 
 const scratch = (prefix = 'wf-') => mkdtempSync(join(tmpdir(), prefix));
+
+test('a python that cannot be found is reported as missing, with a cause', () => {
+  const r = probePython(['definitely-not-a-python-binary-xyz']);
+  assert.equal(r.path, null);
+  assert.match(r.problem, /not found on PATH/);
+});
 
 const fakeTool = (root, skill, script) => {
   mkdirSync(join(root, skill, 'scripts'), { recursive: true });

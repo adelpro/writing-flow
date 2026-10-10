@@ -33,6 +33,20 @@ test('a clean draft exits 0', { skip: skipUnlessInstalled }, async () => {
   assert.equal(r.gates.length, 2);
 });
 
+test('--skip-style skips gate 4 visibly, never as a pass it did not run', async () => {
+  const r = await runGate({
+    path: draft('clean.md'),
+    skipStyle: true,
+    skipMarks: true,
+    toolPaths: { node: process.execPath, python: null, gate4: null, gate5: null, missing: ['avoid-ai-writing', 'remove-ai-marks'] },
+  });
+  assert.equal(r.code, 0, 'with both gates skipped the run is clean');
+  const style = r.gates.find((g) => g.id === 'avoid-ai-writing');
+  assert.equal(style.state, 'PASS');
+  assert.equal(style.summary, 'skipped (--skip-style)');
+  assert.match(formatReport(r), /skipped \(--skip-style\)/);
+});
+
 test('a bundled abbreviation outside parentheses exits 1 and names the rule', { skip: skipUnlessInstalled }, async () => {
   const r = await runGate({ path: draft('bad-latin-abbrev.md') });
   assert.equal(r.code, 1);

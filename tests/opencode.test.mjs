@@ -13,7 +13,10 @@ const fakeContext = () => {
   const commands = [];
   const prompts = [];
   const ctx = {
-    skill: { transform: async (fn) => fn({ add: (s) => skills.push(s) }) },
+    skill: {
+      transform: async (fn) =>
+        fn({ add: (s) => skills.push(s), get: (id) => skills.find((s) => s.id === id) }),
+    },
     mcp: { transform: async (fn) => fn({ set: (name, config) => (servers[name] = config) }) },
     command: { transform: async (fn) => fn({ add: (c) => commands.push(c) }) },
     session: { prompt: async (input) => prompts.push(input) },
@@ -41,6 +44,21 @@ test('the plugin registers both skills, the MCP server and both commands', async
   assert.ok(commands.every((c) => c.description));
 });
 
+test('a skill OpenCode already discovered is not registered twice', async () => {
+  const { ctx, skills } = fakeContext();
+  skills.push({
+    id: 'writing-flow',
+    name: 'discovered',
+    description: 'already installed in ~/.agents/skills',
+    path: 'x/SKILL.md',
+    content: 'x',
+  });
+  await plugin.setup(ctx);
+
+  assert.deepEqual(skills.map((s) => s.id), ['writing-flow', 'voice-default']);
+  assert.equal(skills[0].name, 'discovered', 'the discovered entry is left untouched');
+});
+
 test('a command substitutes its arguments and the skill directory before prompting', async () => {
   const { ctx, commands, prompts } = fakeContext();
   await plugin.setup(ctx);
@@ -59,5 +77,10 @@ test('a command substitutes its arguments and the skill directory before prompti
   assert.ok(sent.text.includes('a post about remote work'));
   assert.ok(!sent.text.includes('$ARGUMENTS'));
   assert.ok(!sent.text.includes('<writing-flow skill base directory>'));
-  assert.ok(sent.text.includes(join(ROOT, 'skills', 'writing-flow', 'scripts', 'gate.mjs')));
+  // The command text is a shell snippet, so the bound skill directory keeps whichever
+  // separator the platform produced; compare with one separator on both sides.
+  const normalise = (value) => value.split('\\').join('/');
+  assert.ok(
+    normalise(sent.text).includes(normalise(join(ROOT, 'skills', 'writing-flow', 'scripts', 'gate.mjs'))),
+  );
 });

@@ -18,12 +18,10 @@ test('the Claude MCP config uses the Claude placeholder', async () => {
   assert.ok(!content.includes(PORTABLE), 'Claude does not expand the portable placeholder');
 });
 
-test('both client configs declare exactly the servers in mcp.json', async () => {
+test('the Claude MCP config declares exactly the servers in mcp.json', async () => {
   const { files } = await preview();
   const claude = JSON.parse(find(files, '.mcp.json').content).mcpServers;
-  const opencode = JSON.parse(find(files, 'mcp.opencode.json').content);
   assert.deepEqual(Object.keys(claude).sort(), serverNames().sort());
-  assert.deepEqual(Object.keys(opencode).sort(), serverNames().sort());
 });
 
 test('the Claude files land at the plugin root, not in a bundle to copy', async () => {
@@ -62,21 +60,10 @@ test('no Cursor manifest is generated', async () => {
   );
 });
 
-test('the OpenCode fragment carries a token the installer substitutes', async () => {
+test('no OpenCode shim is generated: the package plugin registers the server itself', async () => {
   const { files } = await preview();
-  const content = find(files, 'mcp.opencode.json').content;
-  assert.match(content, /__PLUGIN_ROOT__/);
-  assert.ok(!content.includes(PORTABLE), 'OpenCode performs no placeholder expansion');
-});
-
-test('the OpenCode entry is a local server launched with node', async () => {
-  const { files } = await preview();
-  const opencode = JSON.parse(find(files, 'mcp.opencode.json').content);
-  for (const config of Object.values(opencode)) {
-    assert.equal(config.type, 'local');
-    assert.equal(config.command[0], 'node');
-    assert.ok(config.command[1].endsWith('mcp-server.mjs'));
-  }
+  assert.ok(!files.some((f) => f.path.includes('mcp.opencode.json')), 'the merged MCP fragment is gone');
+  assert.ok(!files.some((f) => f.path.includes(join('shims', 'opencode'))), 'no OpenCode shim tree');
 });
 
 test('generation is deterministic and a dry run writes nothing', async () => {
@@ -96,12 +83,11 @@ test('a real run writes every shim under outDir', async () => {
   assert.ok(existsSync(join(out, '.claude-plugin', 'plugin.json')));
   assert.ok(existsSync(join(out, '.claude-plugin', 'marketplace.json')));
   assert.ok(existsSync(join(out, '.mcp.json')));
-  assert.ok(existsSync(join(out, 'shims', 'opencode', 'mcp.opencode.json')));
 });
 
 test('the committed shims match what the generator produces', async () => {
   const { files } = await generateShims({ pluginRoot: '.', outDir: '.' });
-  assert.ok(files.length >= 4);
+  assert.ok(files.length >= 3);
   for (const file of files) {
     assert.ok(existsSync(file.path), `${file.path} is missing; run: node skills/writing-flow/scripts/shims.mjs --apply`);
     assert.equal(

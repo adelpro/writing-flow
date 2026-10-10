@@ -25,6 +25,27 @@ const firstOnPath = (names) => {
   return null;
 };
 
+/**
+ * Resolve a Python that actually runs.
+ *
+ * `where python` on Windows can resolve to the Microsoft Store stub, which is on PATH but exits
+ * non-zero when executed. That surfaced as a bare "python not found" exit 2 — misleading, because
+ * something *was* found. Probing the candidate turns it into a named cause instead.
+ */
+export function probePython(candidates = ['python', 'python3', 'py']) {
+  const candidate = firstOnPath(candidates);
+  if (!candidate) return { path: null, problem: 'python not found on PATH' };
+
+  const r = spawnSync(candidate, ['--version'], { encoding: 'utf8' });
+  if (r.status !== 0) {
+    return {
+      path: null,
+      problem: `${candidate} does not run — on Windows this is usually the Microsoft Store stub; install Python 3, or run the gate with --skip-marks`,
+    };
+  }
+  return { path: candidate, problem: null };
+}
+
 const loadPathsJson = (candidates) => {
   for (const candidate of candidates) {
     if (!candidate) continue;
@@ -70,9 +91,18 @@ export async function resolveToolPaths({ cwd = process.cwd(), pluginRoot = null,
   const gate4 = resolveTool('avoid-ai-writing');
   const gate5 = resolveTool('remove-ai-marks');
 
+  let pythonPath = python;
+  let pythonProblem = null;
+  if (!pythonPath) {
+    const probed = probePython();
+    pythonPath = probed.path;
+    pythonProblem = probed.problem;
+  }
+
   return {
     node: node ?? process.execPath,
-    python: python ?? firstOnPath(['python', 'python3', 'py']),
+    python: pythonPath,
+    pythonProblem,
     gate4,
     gate5,
     missing,
@@ -86,6 +116,7 @@ export async function writePathsJson(target, paths) {
   const record = {
     node: paths.node ?? null,
     python: paths.python ?? null,
+    ...(paths.pythonProblem ? { pythonProblem: paths.pythonProblem } : {}),
     gate4: paths.gate4 ?? null,
     gate5: paths.gate5 ?? null,
     missing: paths.missing ?? [],

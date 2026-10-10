@@ -39,7 +39,7 @@ test('package.json and plugin.json agree on the version', () => {
 
 test('the npm files allowlist ships everything the installer reads at runtime', () => {
   const normalised = read('package.json').files.map((f) => f.replace(/\/$/, ''));
-  for (const needed of ['plugin.json', 'mcp.json', 'bin', 'commands', 'skills']) {
+  for (const needed of ['plugin.json', 'mcp.json', 'bin', 'commands', 'opencode', 'skills']) {
     assert.ok(normalised.includes(needed), `package.json "files" must include ${needed}`);
   }
 });

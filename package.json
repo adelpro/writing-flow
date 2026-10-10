@@ -1,8 +1,12 @@
 {
   "name": "@adelpro/writing-flow",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Portable voice-writing pipeline. Drafts in a profile's voice, runs the Arabic, anti-AI and provenance passes, and gates the result deterministically.",
   "type": "module",
+  "main": "./opencode/index.mjs",
+  "exports": {
+    ".": "./opencode/index.mjs"
+  },
   "license": "MIT",
   "author": {
     "name": "Adel Ben Yahia",

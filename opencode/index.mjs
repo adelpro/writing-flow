@@ -36,8 +36,10 @@ export default {
     const commands = COMMANDS.map(readCommand);
     const server = join(skillDir('writing-flow'), 'scripts', 'mcp-server.mjs');
 
+    // OpenCode discovers ~/.agents/skills on its own, so a skill the installer already placed
+    // there would otherwise be registered a second time. Add only what is not present yet.
     await ctx.skill.transform((editor) => {
-      for (const skill of skills) editor.add(skill);
+      for (const skill of skills) if (!editor.get(skill.id)) editor.add(skill);
     });
 
     await ctx.mcp.transform((editor) => {

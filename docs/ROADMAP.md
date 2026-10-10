@@ -2,7 +2,7 @@
 
 Where this package is, what it deliberately is not yet, and how it changes.
 
-**Current version: 0.9.1 — pre-1.0.** While the major version is 0, a minor bump may change
+**Current version: 0.10.0 — pre-1.0.** While the major version is 0, a minor bump may change
 behaviour; a patch bump will not.
 
 ---
@@ -79,8 +79,22 @@ separately and can be updated on their own:
 npx -y skills@latest add adelpro/writing-flow -g -a opencode -s writing-flow -s voice-default -y --copy
 ```
 
-That installs **skills only** — no commands, no MCP server, no `paths.json`. The installer places
-all four pieces.
+That installs **skills only** — no commands, no MCP server, no `paths.json`. The installer
+declares the Claude marketplace, adds the OpenCode plugin, and installs the skills everywhere
+else.
+
+### Where each harness gets its copy
+
+| Harness | Mechanism | Who fetches |
+|---|---|---|
+| Claude Code | marketplace plugin, declared in `~/.claude/settings.json` | Claude Code |
+| OpenCode | package plugin, from `plugins` in `opencode.json(c)` | OpenCode |
+| Other detected agents | the two skills, via the skills CLI | the installer, at install time |
+
+`~/.agents/skills` is the skills CLI's canonical store and the root the engine resolves against
+(`paths.json`, `doctor`, the gate entry points). The installer copies the two skills there
+byte-exact for the installed version after the CLI runs, so that root cannot drift; the copies in
+other agents' directories come from the repository's default branch.
 
 ### CI
 
@@ -101,15 +115,23 @@ engine loads and behaves, and the integration job is what actually exercises the
 2. **`.claude-plugin/marketplace.json` is unvalidated.** It ships the documented `github` source
    form (`{ "source": "github", "repo": "adelpro/writing-flow" }`), not the relative `"./"`
    drafted first. A `claude plugin validate` run is still outstanding.
-3. **`run_gate` takes a file path, not text.** Fine for a coding agent; it blocks every use where
-   there is no filesystem — including a future hosted service, and the simple "paste this draft
-   and gate it" case. Small change, disproportionate reach.
+3. **The MCP-only surface — a chat UI with no skills system — is not supported.** Its `write`
+   prompt asks the model to follow the `writing-flow` skill, which such a client cannot load, and
+   `run_gate` takes a file path, so a pasted draft cannot be gated. Recorded as a non-goal rather
+   than a gap: closing it means a second, self-contained pipeline inside the prompt, and a
+   lower-fidelity flow is worse than an honest refusal. The server keeps its role as the
+   profile-tool component of the supported surfaces.
 4. **Gate 5 needs Python.** Deliberate: the authoritative check is `remove-ai-marks`'s script, and
    a Node reimplementation would be a second authority that could disagree. A missing Python is
    exit `2` with a named cause, never a silent pass.
 5. **Never verified on a machine without the dependency tools.** The suite skips its integration
    tests when `avoid-ai-writing`, `remove-ai-marks` or Python are absent, and no run has yet been
    done on a host that had none of them.
+6. **The skills CLI installs from the default branch, not from the installed package.** A user on
+   `@adelpro/writing-flow@0.10.0` can receive skill files newer than their package in every
+   directory except `~/.agents/skills`, which the installer overwrites byte-exact. The CLI exposes
+   no ref or version pin for `add`, so closing this needs either a changed CLI or copying from the
+   package per agent.
 6. **`generate_profile` reads a file, never the session.** The skill instructs the agent to say,
    once, that a personal profile "can be generated from writing the user already has" — but the
    tool's `source` is a path (a `SKILL.md`, a markdown file, or a directory). Nothing reads the

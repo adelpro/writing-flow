@@ -85,7 +85,7 @@ export async function runDoctor({ cwd = process.cwd(), pluginRoot = DEFAULT_PLUG
     problems.push(`missing skill: ${skill} is not installed in any known skill root`);
   }
   if (!tools.python) {
-    problems.push('python not found on PATH: the provenance gate cannot run');
+    problems.push(`${tools.pythonProblem ?? 'python not found on PATH'}: the provenance gate cannot run (skip it with --skip-marks)`);
   }
 
   const searchRoots = roots ?? tools.roots ?? [];
@@ -115,6 +115,7 @@ export async function runDoctor({ cwd = process.cwd(), pluginRoot = DEFAULT_PLUG
     ambiguity,
     missing,
     python: tools.python,
+    pythonProblem: tools.pythonProblem ?? null,
     gate4: tools.gate4,
     gate5: tools.gate5,
     roots: searchRoots,
@@ -140,7 +141,7 @@ if (invokedDirectly) {
     process.stdout.write(`profile : ${p ? `${p.name} ${p.version} (${p.resolvedBy}) at ${p.dir}` : 'none'}\n`);
     process.stdout.write(`gate4   : ${report.gate4 ? report.gate4.path : 'MISSING'}\n`);
     process.stdout.write(`gate5   : ${report.gate5 ? report.gate5.path : 'MISSING'}\n`);
-    process.stdout.write(`python  : ${report.python ?? 'MISSING'}\n`);
+    process.stdout.write(`python  : ${report.python ?? `MISSING (${report.pythonProblem ?? 'not found'})`}\n`);
     process.stdout.write(`rendered: ${report.rendered.length === 0 ? 'nowhere' : report.rendered.join(', ')}\n`);
     for (const warning of report.warnings) process.stdout.write(`warning : ${warning}\n`);
     for (const problem of report.problems) process.stdout.write(`problem : ${problem}\n`);

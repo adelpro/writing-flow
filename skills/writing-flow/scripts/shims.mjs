@@ -3,7 +3,6 @@ import { dirname, join, resolve } from 'node:path';
 
 const PORTABLE = '${PLUGIN_ROOT}';
 const CLAUDE_PLACEHOLDER = '${CLAUDE_PLUGIN_ROOT}';
-const OPENCODE_TOKEN = '__PLUGIN_ROOT__';
 
 const rewrite = (value, from, to) => {
   if (typeof value === 'string') return value.split(from).join(to);
@@ -24,23 +23,16 @@ const claudeEntry = (config) => {
 };
 
 /**
- * OpenCode reads `command` as an argv array and performs no placeholder expansion, so the
- * fragment carries a token the installer replaces with the real plugin root.
- */
-const opencodeEntry = (config) => ({
-  type: 'local',
-  command: [rewrite(config.command, PORTABLE, OPENCODE_TOKEN), ...(config.args ?? []).map((a) => rewrite(a, PORTABLE, OPENCODE_TOKEN))],
-  enabled: true,
-});
-
-/**
  * Generate every client shim from the single portable `mcp.json`.
  *
  * The Claude Code files are written to the plugin ROOT, not into a bundle to copy: Claude Code
  * looks for `.claude-plugin/plugin.json` at the plugin root, so a root-level pair makes the
- * repository a Claude plugin directly. Conformant Agent Plugins clients ignore extra top-level
- * directories, and `.mcp.json` is not the fixed `mcp.json` path they read — so this costs
- * nothing on the portable side.
+ * repository a Claude plugin directly, and the marketplace entry installed from it. Conformant
+ * Agent Plugins clients ignore extra top-level directories, and `.mcp.json` is not the fixed
+ * `mcp.json` path they read — so this costs nothing on the portable side.
+ *
+ * OpenCode needs no file here: it loads the package plugin (`opencode/index.mjs`), which
+ * registers the MCP server itself, so there is no fragment for the installer to merge.
  *
  * Cursor needs no file: Cursor reads the Agent Plugins `plugin.json` it already finds, and
  * `.cursor-plugin/marketplace.json` is for multi-plugin repositories.
@@ -54,10 +46,6 @@ export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = 
   const claudeServers = Object.fromEntries(
     Object.entries(portable).map(([name, config]) => [name, claudeEntry(config)]),
   );
-  const opencodeServers = Object.fromEntries(
-    Object.entries(portable).map(([name, config]) => [name, opencodeEntry(config)]),
-  );
-
   const claudeManifest = {
     name: manifest.name,
     version: manifest.version,
@@ -90,7 +78,6 @@ export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = 
     { path: join(target, '.claude-plugin', 'plugin.json'), content: `${asString(claudeManifest)}\n` },
     { path: join(target, '.claude-plugin', 'marketplace.json'), content: `${asString(marketplace)}\n` },
     { path: join(target, '.mcp.json'), content: `${asString({ mcpServers: claudeServers })}\n` },
-    { path: join(target, 'shims', 'opencode', 'mcp.opencode.json'), content: `${asString(opencodeServers)}\n` },
   ];
 
   if (!dryRun) {

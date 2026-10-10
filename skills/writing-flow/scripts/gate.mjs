@@ -53,6 +53,7 @@ export async function runGate({
   cwd = process.cwd(),
   profileDir = null,
   skipMarks = false,
+  skipStyle = false,
   roots,
   toolPaths = null,
   pluginRoot = DEFAULT_PLUGIN_ROOT,
@@ -85,7 +86,9 @@ export async function runGate({
   const config = houseStylePath && existsSync(houseStylePath) ? houseStylePath : null;
   const gates = [];
 
-  if (!tools.gate4) {
+  if (skipStyle) {
+    gates.push(entry('avoid-ai-writing', 0, 'skipped (--skip-style)', []));
+  } else if (!tools.gate4) {
     gates.push(entry('avoid-ai-writing', 2, 'avoid-ai-writing not found', []));
   } else {
     const args = [tools.gate4.path, draft, ...(config ? ['--config', config] : [])];
@@ -97,7 +100,7 @@ export async function runGate({
   if (skipMarks) {
     gates.push(entry('remove-ai-marks', 0, 'skipped (--skip-marks)', []));
   } else if (!tools.python) {
-    gates.push(entry('remove-ai-marks', 2, 'python not found on PATH', []));
+    gates.push(entry('remove-ai-marks', 2, tools.pythonProblem ?? 'python not found on PATH', []));
   } else if (!tools.gate5) {
     gates.push(entry('remove-ai-marks', 2, 'remove-ai-marks not found', []));
   } else {
@@ -139,6 +142,7 @@ if (invokedDirectly) {
       path: file,
       profileDir: flag('--profile'),
       skipMarks: argv.includes('--skip-marks'),
+      skipStyle: argv.includes('--skip-style'),
     });
     if (argv.includes('--json')) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

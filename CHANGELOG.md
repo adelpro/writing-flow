@@ -2,8 +2,61 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
-## Unreleased
+## 0.10.0
 
+- **Added: an options surface on the installer.** `--agents`, `--all-agents`, `--no-agents`,
+  `--no-claude`, `--no-opencode`, `--skills-only`, `--no-deps`, `--offline`, `--no-python-check`,
+  `--prune`, `--uninstall`, `--keep`, `--profile`/`--default-profile`/`--generate-profile`/
+  `--no-profile`, `--store`, `--json`, `--check`, `--yes`, `--help` — plus an interactive wizard
+  when it is run in a terminal without `--yes`. Flags never imply a write: `--apply`, or the
+  wizard's confirmation, is required. Naming `--agents` scopes every surface, not just the skills.
+- **Added: a profile store, searched before the default.** `~/.agents/writing-flow/profiles` is
+  checked before falling back to the bundled `voice-default`, and a profile found there is rendered
+  into the harness roots. Generating a profile is offered, never automatic.
+- **Added: `--skip-style`**, the symmetric escape to `--skip-marks`, reported as
+  `PASS skipped (--skip-style)` so it can never be read as a check that ran.
+- **Dropped: the MCP-only surface.** A client with no skills system — a plain chat UI — gets the
+  profile tools and the prompts, but cannot load the skill the prompt depends on, and `run_gate`
+  takes a file path, so the flow degrades into an improvised order and an ungated result. The
+  `write` prompt now stops and says so instead of improvising, and the README and ROADMAP record it
+  as a non-goal. The server keeps its role as the profile-tool component of the supported surfaces.
+- **Fixed: the dependencies only reached OpenCode.** They were installed with `-a opencode`, so
+  `~/.agents/skills` got them and every other harness root did not — Claude Code would receive
+  writing-flow from the plugin and none of the four skills its stages call. They now install for
+  every detected agent, `claude-code` included; there is no duplication risk, because no plugin
+  ships them.
+- **Added: install-time warnings instead of silent gaps.** A missing Python — or the Microsoft
+  Store stub, which is on `PATH` but does not run — is named at install time rather than
+  discovered later as a bare exit 2, and the message carries the `--skip-marks` escape. A
+  dependency directory that exists but cannot run (an umbrella repository cloned into the skill
+  root, so the gate script sits a level deeper) is warned about with the fix, because the
+  installer deliberately never rewrites an existing dependency.
+- **`probePython` now verifies the candidate runs** (`python --version`) instead of trusting
+  `where`/`which`, so the Store stub is reported as "does not run" rather than as a working
+  Python that fails every gate.
+- **Fixed: the suite was not hermetic.** `tests/install.test.mjs` called the installer with the
+  real dependency list and no dry run, so every test run performed a live `git clone`.
+- **Changed: every harness is now installed through its own native mechanism.** `bin/install.mjs`
+  no longer copies what a harness can fetch itself. Claude Code gets the marketplace plugin
+  (`extraKnownMarketplaces` + `enabledPlugins` in `~/.claude/settings.json`); OpenCode gets the
+  package plugin (`@adelpro/writing-flow` in the `plugins` array); every other detected agent
+  gets the two skills through the skills CLI. The hand-assembled `~/.claude/plugins/writing-flow`
+  bundle, the `~/.config/opencode/commands/` copies, the merged `mcp.writing-flow` entry and the
+  generated `shims/opencode/mcp.opencode.json` fragment are all gone.
+- **Fixed: the Claude bundle's MCP server could never start.** It pointed at
+  `${CLAUDE_PLUGIN_ROOT}/skills/writing-flow/scripts/mcp-server.mjs` from a bundle that
+  deliberately ships no `skills/`. The marketplace route resolves that path inside the plugin
+  clone, so the fix was to stop hand-assembling the bundle.
+- **Packaged as an OpenCode plugin package:** `package.json` gains `main` and `exports` pointing
+  at `opencode/index.mjs`, so the package can be named in `plugins` rather than path-referenced.
+- **Fixed: the OpenCode plugin could register a skill twice.** It now adds a skill only when
+  OpenCode has not already discovered it in `~/.agents/skills`.
+- **Fixed (Windows): `tests/opencode.test.mjs` compared a backslash-joined path against command
+  text that used forward slashes**, so the suite failed on `windows-latest`. Both sides are now
+  compared with a single separator.
+- **Hardened:** the installer's direct-invocation guard matched any path ending in `install.mjs`;
+  it now compares the basename. A byte-order mark at the start of a settings file no longer makes
+  the merge skip silently.
 - **Added: an OpenCode plugin (`opencode/index.mjs`).** It registers the `writing-flow` and `voice-default` skills, the MCP server, and the `/flow-writing` and `/flow-doctor` commands through OpenCode's plugin API, so OpenCode no longer needs the installer's copy steps. Covered by `tests/opencode.test.mjs`, which runs against a fake plugin context rather than a live OpenCode.
 - **Packaging: the repository is now an npm package.** `package.json` adds a `writing-flow` bin, `npm test` / `npm run build` / `npm run doctor` scripts, an `engines: node >=22` floor, and a `files` allowlist that ships sources only. The installer moved to `bin/` and now regenerates the client shims in memory, so an npm tarball needs no dotfiles and `npx -y @adelpro/writing-flow --apply` installs without a clone. Docs were reorganised: `ROADMAP.md` moved under `docs/`, planning documents are no longer tracked (`docs/superpowers/` is gitignored), the unused vendored schemas were dropped, and `AGENTS.md` maps source versus generated. Three tests were added (version parity, `files` coverage, and shim regeneration from a dotfile-less package).
 - **Fixed: `generate_profile` left a freshly written profile failing its own doctor.** The generated `voice-card.md` was written with a trailing newline the card checker does not expect, so `doctor` reported `stale card` on a profile the tool itself had just created. The card is now written exactly as `renderVoiceCard` produces it - the same bytes `render_profile` writes - and a test pins the two together.

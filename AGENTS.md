@@ -25,11 +25,13 @@ and one MCP server.
 
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — Claude Code manifest.
 - `.mcp.json` — Claude Code MCP config.
-- `shims/opencode/mcp.opencode.json` — the OpenCode MCP fragment the installer merges into the
-  user's `opencode.json`.
 
 The generator is `skills/writing-flow/scripts/shims.mjs`; a test fails if the committed copies
 drift from it.
+
+OpenCode has no generated file: the package plugin (`opencode/index.mjs`) registers the MCP
+server itself, so the installer merges nothing into the user's OpenCode config but the plugin
+name.
 
 ## Commands
 
@@ -42,12 +44,15 @@ drift from it.
 
 ## Clients
 
-| Client | Reads | One command |
+| Client | How it loads | One command |
 |---|---|---|
-| Claude Code | `.claude-plugin/plugin.json` + `.mcp.json` | `/plugin marketplace add adelpro/writing-flow` |
-| OpenCode | `opencode/index.mjs` plugin: skills, MCP server, commands | add `opencode/` to `plugins` in `opencode.json` |
-| Agent Plugins clients (Cursor, Copilot/VS Code, Codex) | `plugin.json` + `skills/` + `mcp.json` | load the directory |
-| Any Agent Skills client | `skills/` | `npx -y skills@latest add adelpro/writing-flow -g -a <agent> -s writing-flow -s voice-default -y --copy` |
+| Claude Code | the marketplace plugin, declared in `~/.claude/settings.json` | `/plugin marketplace add adelpro/writing-flow` |
+| OpenCode | the package plugin, from `plugins` in `opencode.json(c)` | `opencode plugin add @adelpro/writing-flow -g` |
+| Agent Plugins clients (Cursor, Copilot/VS Code, Codex) | `plugin.json` + `skills/` + `mcp.json`, loaded as the package directory | load the directory |
+| Any Agent Skills client | `skills/`, installed by the skills CLI | `npx -y skills@latest add adelpro/writing-flow -g -a <agent> -s writing-flow -s voice-default -y --copy` |
+
+`bin/install.mjs` wires the first, second and fourth of those natively and never hand-copies
+what a harness can fetch itself.
 
 ## Notes
 

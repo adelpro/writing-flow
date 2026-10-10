@@ -48,9 +48,13 @@ install is not finished until the harness can see the server.
 
 The install does these things, so you do not have to:
 
-- renders the skills into each harness root it finds;
-- writes the Claude plugin bundle when `~/.claude` exists;
-- copies the native commands into the Claude bundle;
+- declares the Claude Code marketplace and plugin in `~/.claude/settings.json`
+  (`extraKnownMarketplaces` + `enabledPlugins`), and lets Claude fetch the plugin;
+- adds `@adelpro/writing-flow` to the `plugins` array of `~/.config/opencode/opencode.json(c)`;
+- installs both skills, with the skills CLI, into every agent it detects — never `claude-code`,
+  which takes them from the plugin;
+- copies both skills into `~/.agents/skills` byte-exact for the installed version, because that
+  is the root the engine resolves against;
 - records the resolved tool paths in `paths.json` so later runs need not guess;
 - pulls the four dependency skills with targeted installs.
 
@@ -70,6 +74,30 @@ by hand and re-run:
 ```sh
 npx -y skills@latest add <owner>/<repo> -g -a <agent> -s <skill> -y --copy
 ```
+
+### Options
+
+`npx -y @adelpro/writing-flow --help` prints all of them. The ones worth knowing:
+
+| Flag | Effect |
+|---|---|
+| `--apply` | write; without it every run is a dry run |
+| `--agents=<a,b>` | wire only these harnesses — the skills, and the OpenCode/Claude config when `opencode` / `claude-code` are named |
+| `--all-agents` | every detected harness |
+| `--skills-only` | the two skills only: no dependencies, no config, no voice |
+| `--no-deps` | the skills, but not the four dependencies |
+| `--offline` | never reach the network; use the copies inside the package |
+| `--prune` | remove what 0.9.1 left behind — the bundle, the skill copies, the command copies, the stale MCP entry |
+| `--uninstall` | `--prune`, plus the plugin entry, the Claude keys and the packaged skills |
+| `--profile=<dir>` · `--default-profile` · `--generate-profile=<file>` · `--no-profile` | choose the voice |
+| `--store=<dir>` | where personal profiles live (default `~/.agents/writing-flow/profiles`) |
+| `--check` | report the setup and exit, writing nothing |
+| `--json` | machine-readable plan |
+| `--yes` | accept the defaults, never prompt |
+
+Run it in a terminal with no flags and it asks the questions instead: which harnesses, full or
+skills-only, what to do with 0.9.1 leftovers, and which voice — then prints the plan and takes one
+confirmation. Flags never imply a write: `--apply`, or the wizard's confirmation, is required.
 
 ## What it does
 
@@ -102,7 +130,6 @@ skills/voice-default/            the neutral fallback profile
 docs/                            ROADMAP only — no planning documents are tracked
 .mcp.json                        Claude Code MCP config (generated)
 .claude-plugin/                  Claude Code manifest and marketplace (generated)
-shims/opencode/                  generated OpenCode fragment
 ```
 
 `AGENTS.md` carries the full source-vs-generated map. Anything generated is regenerated with
@@ -121,23 +148,22 @@ hand-maintained — `shims.mjs` writes them all from `mcp.json` and `plugin.json
 /plugin install writing-flow@writing-flow
 ```
 
-Or, from a clone: `node bin/install.mjs --apply` writes the bundle to
-`~/.claude/plugins/writing-flow/`.
+Or, from a clone: `node bin/install.mjs --apply` declares the same marketplace and plugin in
+`~/.claude/settings.json`, and Claude Code installs it on its next start.
 
-### Prompts (any MCP client)
+### Not supported: MCP-only clients (chat UIs)
 
-The server also exposes two MCP **prompts** — the user-invoked counterpart of a slash command,
-and the only portable one:
+The server is a **component, not a surface**. In a client with no skills system — a plain chat UI —
+it supplies the profile tools and two prompts, but not the pipeline:
 
-| Prompt | Argument | What it does |
-|---|---|---|
-| `write` | `request` (required) | Runs the whole flow, carrying the profile that is active at the moment it is served |
-| `doctor` | — | Asks for the setup to be diagnosed in plain language, with the fixing command |
+- the `write` prompt tells the model to follow the `writing-flow` skill, and **there is no skill to
+  load** — so the stage order, the bounded loop and the register rule never arrive;
+- `run_gate` takes a **file path**, so a pasted draft cannot be gated where there is no filesystem;
+- the four dependency skills are absent, so stages 0, 2, 4 and 5 have nothing to run.
 
-A prompt is **computed at request time**, which a static command file cannot do: it names
-the profile actually in play rather than leaving the agent to discover it. Where a client does
-not surface prompts, `commands/` and the skill's own triggers remain the entry points — prompts
-are protocol-portable, but no client is obliged to show them.
+What you get is an improvised order and an ungated result — a lower-fidelity flow this package does
+not claim. **Install one of the surfaces above instead.** The MCP server still has a role there: on
+OpenCode and Claude Code it is what supplies the profile tools, wired by the plugin.
 
 ### Commands
 
@@ -212,17 +238,23 @@ cp -r skills/writing-flow skills/voice-default <that-client's-skills-directory>
 **Agent Plugins clients** — Codex, Cursor, Copilot in VS Code, Kiro — load the package directory
 as published. The root `plugin.json` is the manifest; no shim needed.
 
-**OpenCode** — load the plugin. Add its folder to the `plugins` array in `opencode.json`:
+**OpenCode** — load the package plugin. The installer adds it to `plugins` for you; by hand it is:
 
 ```jsonc
 {
-  "plugins": ["/absolute/path/to/writing-flow/opencode"]
+  "plugins": ["@adelpro/writing-flow"]
 }
 ```
 
+or, equivalently:
+
+```sh
+opencode plugin add @adelpro/writing-flow -g
+```
+
 The plugin registers both skills, the MCP server, and the `/flow-writing` and `/flow-doctor`
-commands. Restart OpenCode after editing the config. Use a path that stays put: a clone under
-`/tmp` is cleared on reboot.
+commands, so nothing is copied into `~/.config/opencode` and no MCP entry is merged. Restart
+OpenCode after editing the config.
 
 **Antigravity** reads **Agent Plugins** packages directly — `plugin.json`, `skills/` and `mcp.json`
 — which is exactly what this repository already is, so there is nothing extra to ship for it.
@@ -234,8 +266,8 @@ covers it.
 
 **If a client can take only one piece, take the skills.** They carry the entire process, and the
 gate is runnable as a plain command from inside them — the pipeline is designed to work with no
-MCP server configured. The server is the layer that reaches clients with no skills system at all:
-in a chat UI it is the *only* option.
+MCP server configured. A client with no skills system at all is **not supported**; see
+"Not supported: MCP-only clients" above for why.
 
 Exact install syntax for Codex and Antigravity CLI moves between versions — check their current
 docs. What is listed here is the payload you are placing, which is the part that will not change.
@@ -273,7 +305,10 @@ node skills/writing-flow/scripts/generate.mjs ./my-writing.md --name myvoice --o
 ```
 
 It reads a markdown file, a `SKILL.md`, or a directory containing one, and reports every line
-it would drop as *pipeline* instruction rather than voice. Nothing is written until you add
+it would drop as *pipeline* instruction rather than voice. Put the result in the store —
+`~/.agents/writing-flow/profiles/myvoice` — and the installer finds it on its next run and renders
+it into every harness root. The order it searches is: an explicit `--profile`, then the store, then
+any profile already installed, then the bundled `voice-default`. Nothing is written until you add
 `--apply`. Read the dropped lines before you do — a bad split is how a voice gets mangled.
 
 Over MCP, the same thing is `generate_profile`, which previews by default and needs
