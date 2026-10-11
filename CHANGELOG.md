@@ -2,6 +2,15 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.11.2
+
+- **Fixed: the doctor called ambiguity in a root nothing loads.** The current directory is a search
+  root for *tools*, and the skill scan took it as one too, recursing the whole tree — so running it
+  from a directory that carries vendored copies of a skill (a dev checkout, a build cache, a
+  monorepo) announced every nested copy as an ambiguous name, and buried the collisions that do
+  matter under a wall of them. Skills are looked for in harness roots; the cwd still resolves the
+  tools and a project profile, which is what it is for.
+
 ## 0.11.1
 
 - **Fixed: the published command did nothing.** Every entry point decided whether it was the entry

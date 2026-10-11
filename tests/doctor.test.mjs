@@ -107,6 +107,27 @@ test('flags a skill that resolves twice inside one root, and names the fix', asy
   assert.equal(d.skills.find((s) => s.skill === 'writing-flow').status, 'ambiguous');
 });
 
+test('does not treat the working directory as a skill root, however deep the copies go', async () => {
+  // A project tree can carry vendored skill copies at any depth. Scanning the cwd for them reports
+  // ambiguity in a root no harness loads, and buries the collisions that do matter.
+  const cwd = scratch();
+  const root = scratch();
+  for (const [dir, file] of [
+    [join(cwd, 'wf-a', 'writing-flow'), 'SKILL.md'],
+    [join(cwd, 'wf-b', 'writing-flow'), 'SKILL.md'],
+    [join(root, 'writing-flow'), 'SKILL.md'],
+  ]) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, file), '---\nname: writing-flow\n---\n\nBody.\n');
+  }
+  const d = await runDoctor({ cwd, pluginRoot: '.', roots: [cwd, root], store: STORE, home: scratch(), smoke: false });
+  assert.equal(
+    d.skills.find((s) => s.skill === 'writing-flow').status,
+    'ok',
+    JSON.stringify(d.problems, null, 2),
+  );
+});
+
 test('one copy per root is not ambiguous, however many roots hold one', async () => {
   const a = scratch();
   const b = scratch();

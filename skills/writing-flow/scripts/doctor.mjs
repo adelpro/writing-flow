@@ -244,7 +244,17 @@ export async function runDoctor({ cwd = process.cwd(), pluginRoot = DEFAULT_PLUG
   const searchRoots = roots ?? tools.roots ?? [];
   // The Hermes root is scanned for the skill inventory only, never for drift: it holds what the
   // skills CLI put there, which is not a rendered copy of the store.
-  const skillRoots = [...new Set([...searchRoots, ...(existsSync(join(home, '.hermes', 'skills')) ? [join(home, '.hermes', 'skills')] : [])])];
+  //
+  // The cwd is a search root for *tools*, not for skills. A harness reads fixed roots, and a
+  // project tree can carry vendored copies of a skill at any depth — reporting those as ambiguous
+  // names a root nothing loads, and buries the collisions that matter.
+  const cwdResolved = resolve(cwd);
+  const skillRoots = [
+    ...new Set([
+      ...searchRoots.filter((root) => resolve(root) !== cwdResolved),
+      ...(existsSync(join(home, '.hermes', 'skills')) ? [join(home, '.hermes', 'skills')] : []),
+    ]),
+  ];
 
   // The four skills the profile names, plus the pipeline skill itself. Reported by name and
   // status, because "the harness cannot load this" is the failure a user actually meets.
