@@ -32,19 +32,24 @@ node bin/install.mjs --apply    # make the changes
 tools, prompts and commands do not exist yet. In OpenCode and Claude Code, restart the app or
 session.
 
-Finally, confirm:
+The install ends by reading itself back: `--apply` runs `doctor` automatically, over the resolved
+tools, the gate scripts **executed** against a known-bad and a known-good fixture, every required
+skill by name, the MCP surface, and all six stages — enough to catch what a half-install hides.
+`--no-doctor` silences it, `--no-smoke` skips the script run, and `--strict-doctor` makes its
+findings fatal. Run it by hand after changing a profile:
 
 ```sh
 npm run doctor          # or: node skills/writing-flow/scripts/doctor.mjs
 ```
 
-`doctor` names the effective profile, where each gate tool resolved, and whether any rendered
-copy has drifted from the store.
+`doctor` names the effective profile, where each gate tool resolved, whether any rendered copy has
+drifted from the store, and which stages cannot run.
 
 ### For an agent asked to install this
 
 Do the four steps above in order. Do not skip the dry run, and **do not skip the reload** — the
-install is not finished until the harness can see the server.
+install is not finished until the harness can see the server. If it asks whether to generate a
+profile, answer it: declining is a supported outcome and keeps the bundled default.
 
 The install does these things, so you do not have to:
 
@@ -62,9 +67,12 @@ The install does these things, so you do not have to:
 
 And it deliberately does **not**:
 
-- **create a profile.** Without one the bundled neutral default applies. The pipeline skill
-  mentions once, on the first writing task rather than now, that a profile can be generated from
-  writing you already have;
+- **create a profile without asking.** In a terminal, when no profile is found anywhere, it offers
+  to distil one from writing you already have: the source path, a preview of the lines it would
+  drop as *pipeline* instruction rather than voice, then a second confirmation before anything is
+  written. Decline it, or run where nobody can be asked (`--yes`, CI, a pipe), and the bundled
+  neutral default applies — recorded in the plan, never swallowed. The pipeline skill also mentions
+  it once on the first writing task;
 - **touch a harness it cannot find.** It only writes to `~/.config/opencode`, `~/.claude` and
   `~/.hermes` when those directories already exist;
 - **remove anything.** It copies; it never prunes. If a command or skill was renamed upstream, a
@@ -87,6 +95,7 @@ npx -y skills@latest add <owner>/<repo> -g -a <agent> -s <skill> -y --copy
 | `--agents=<a,b>` | wire only these harnesses — the skills, and the OpenCode/Claude config when `opencode` / `claude-code` are named |
 | `--all-agents` | every detected harness |
 | `--no-hermes` | do not touch `~/.hermes` |
+| `--no-doctor` · `--no-smoke` · `--strict-doctor` | after an apply: skip the setup report, skip running the gate scripts, or make its findings fatal |
 | `--skills-only` | the two skills only: no dependencies, no config, no voice |
 | `--no-deps` | the skills, but not the four dependencies |
 | `--offline` | never reach the network; use the copies inside the package |
