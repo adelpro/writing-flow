@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { DEPENDENCIES, install, parseFlags } from '../bin/install.mjs';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const scratchHome = () => mkdtempSync(join(tmpdir(), 'wf-home '));
 
@@ -100,6 +104,22 @@ test('with no one to ask, the fallback is a warning carrying the command instead
 test('the help text advertises the npm package, not the repository slug', async () => {
   const { HELP } = await import('../bin/install.mjs');
   assert.match(HELP, /Usage: npx -y @adelpro\/writing-flow \[options\]/);
+});
+
+test('runs when invoked through a bin shim, not only as node bin/install.mjs', async (t) => {
+  // `npx` and a global install invoke the bin through a symlink whose name is the command
+  // (`writing-flow`), not the file. A name-based entry guard then reports "not the entry point"
+  // and the CLI exits 0 having done nothing at all — silently, which is how 0.11.0 shipped.
+  const shim = join(scratchHome(), 'writing-flow');
+  try {
+    symlinkSync(join(REPO_ROOT, 'bin', 'install.mjs'), shim);
+  } catch (err) {
+    // Windows needs a privilege the runner may not hold; skipping is honest, passing is not.
+    return t.skip(`cannot create a symlink here: ${err.code}`);
+  }
+  const r = spawnSync(process.execPath, [shim, '--help'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /writing-flow installer/);
 });
 
 test('a dry run reports what it would do and writes nothing', async () => {

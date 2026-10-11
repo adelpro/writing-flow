@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { readManifest, resolveProfile, ProfileError } from './profile.mjs';
 import { resolveToolPaths } from './resolve-paths.mjs';
 import { checkCard, checkDrift } from './render.mjs';
+import { isEntryPoint } from './entry.mjs';
 import { generateProfile } from './generate.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -329,7 +330,7 @@ export const formatDoctor = (report) => {
   return `${lines.join('\n')}\n`;
 };
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]).endsWith('doctor.mjs');
+const invokedDirectly = isEntryPoint(import.meta.url);
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const flag = (name) => {

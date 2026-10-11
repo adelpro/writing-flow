@@ -134,7 +134,7 @@ commands/                        the native commands: flow-writing, flow-doctor
 opencode/index.mjs               the OpenCode plugin: skills, MCP server and commands
 bin/install.mjs                  the installer (+ .ps1 / .sh shims)
 skills/writing-flow/SKILL.md     the pipeline contract (no voice, no style rules)
-skills/writing-flow/scripts/     the engine: gate, lang, profile, render, doctor, MCP server
+skills/writing-flow/scripts/     the engine: gate, lang, entry, profile, render, doctor, MCP server
 skills/voice-default/            the neutral fallback profile
 docs/                            ROADMAP only — no planning documents are tracked
 .mcp.json                        Claude Code MCP config (generated)

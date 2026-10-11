@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderVoiceCard } from './render.mjs';
+import { isEntryPoint } from './entry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = resolve(HERE, '..', '..', '..');
@@ -175,7 +176,7 @@ export async function generateProfile({
   };
 }
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]).endsWith('generate.mjs');
+const invokedDirectly = isEntryPoint(import.meta.url);
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const flag = (option) => {

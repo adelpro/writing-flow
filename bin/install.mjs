@@ -39,6 +39,7 @@ import { readManifest } from '../skills/writing-flow/scripts/profile.mjs';
 import { renderProfile } from '../skills/writing-flow/scripts/render.mjs';
 import { generateProfile } from '../skills/writing-flow/scripts/generate.mjs';
 import { runDoctor, formatDoctor } from '../skills/writing-flow/scripts/doctor.mjs';
+import { isEntryPoint } from '../skills/writing-flow/scripts/entry.mjs';
 
 /** Dependency identifiers must never contain shell metacharacters or spaces. */
 const SAFE_IDENTIFIER = /^[A-Za-z0-9@/._-]+$/;
@@ -993,7 +994,7 @@ Output
 Agent ids the skills CLI accepts include: ${VALID_AGENTS.join(', ')}
 `;
 
-const invokedDirectly = process.argv[1] && basename(resolve(process.argv[1])) === 'install.mjs';
+const invokedDirectly = isEntryPoint(import.meta.url);
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   if (argv.includes('--help') || argv.includes('-h')) {

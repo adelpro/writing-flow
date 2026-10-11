@@ -1,5 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { isEntryPoint } from './entry.mjs';
 
 const PORTABLE = '${PLUGIN_ROOT}';
 const CLAUDE_PLACEHOLDER = '${CLAUDE_PLUGIN_ROOT}';
@@ -90,10 +92,11 @@ export async function generateShims({ pluginRoot = '.', outDir = null, dryRun = 
   return { files, dryRun, outDir: target };
 }
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]).endsWith('shims.mjs');
+const invokedDirectly = isEntryPoint(import.meta.url);
 if (invokedDirectly) {
   const apply = process.argv.includes('--apply');
-  const pluginRoot = resolve(dirname(process.argv[1]), '..', '..', '..');
+  // From this file, not from argv[1]: through a bin shim argv[1] is a symlink somewhere else.
+  const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
   const report = await generateShims({ pluginRoot, dryRun: !apply });
   for (const file of report.files) process.stdout.write(`${apply ? 'wrote' : 'would write'} ${file.path}\n`);
 }

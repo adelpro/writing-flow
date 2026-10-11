@@ -12,6 +12,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isEntryPoint } from './entry.mjs';
 
 /**
  * Arabic: the main block, the supplements, and the presentation forms an editor may paste in.
@@ -72,7 +73,7 @@ export const detectLanguage = (text) => {
   };
 };
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+const invokedDirectly = isEntryPoint(import.meta.url);
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const file = argv.find((a) => !a.startsWith('--'));

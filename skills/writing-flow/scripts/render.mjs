@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { readManifest } from './profile.mjs';
+import { isEntryPoint } from './entry.mjs';
 
 const CARD = 'voice-card.md';
 
@@ -170,7 +171,7 @@ export function checkCard({ profileDir } = {}) {
   return readFileSync(cardPath, 'utf8') === expected ? null : { path: cardPath, reason: 'card-stale' };
 }
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]).endsWith('render.mjs');
+const invokedDirectly = isEntryPoint(import.meta.url);
 if (invokedDirectly) {
   const [command, dir, ...rest] = process.argv.slice(2);
   if (command === 'card' && dir) {

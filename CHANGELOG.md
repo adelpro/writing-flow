@@ -2,6 +2,19 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.11.1
+
+- **Fixed: the published command did nothing.** Every entry point decided whether it was the entry
+  point by comparing `argv[1]` against its own filename — and `npx`, like any global install,
+  invokes the bin through a symlink whose basename is the command (`writing-flow`), not the file.
+  The check came back false, the CLI exited `0`, and the release printed nothing: `npx -y
+  @adelpro/writing-flow --apply` looked like it had run. Real paths are compared now, through one
+  shared `scripts/entry.mjs`, in the installer and all six engine commands. `shims.mjs` also
+  derived the plugin root from `argv[1]`, which under a shim pointed at the shim's own directory.
+- **Test:** a case that invokes the installer through a symlink named after the command, which is
+  the shape the published bin actually has. Everything else ran the working copy by path, which is
+  why the suite was green while the shipped command was dead.
+
 ## 0.11.0
 
 - **Added: Hermes Agent is wired natively.** Hermes is a fourth shape, not a fourth copy: no plugin

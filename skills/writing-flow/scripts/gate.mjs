@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { readManifest, resolveProfile } from './profile.mjs';
 import { resolveToolPaths } from './resolve-paths.mjs';
+import { isEntryPoint } from './entry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** <plugin root>/skills/writing-flow/scripts -> <plugin root> */
@@ -129,7 +130,7 @@ export function formatReport(result) {
   return lines.join('\n');
 }
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]).endsWith('gate.mjs');
+const invokedDirectly = isEntryPoint(import.meta.url);
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const flag = (name) => {
