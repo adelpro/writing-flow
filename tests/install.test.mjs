@@ -60,8 +60,13 @@ test('offers to generate a profile when none is found, and generates on a yes', 
   const ask = async () => answers.shift() ?? '';
   const r = await install({ home, dependencies: [], runner: recorder().runner, ask });
 
-  assert.ok(r.actions.some((a) => /generated .*profiles\/post/.test(a.detail)), JSON.stringify(r.actions, null, 2));
-  assert.ok(existsSync(join(home, '.agents', 'writing-flow', 'profiles', 'post', 'writing-profile.json')));
+  // Compared with join(), never a forward-slash regex: the path separator is the platform's.
+  const out = join(home, '.agents', 'writing-flow', 'profiles', 'post');
+  assert.ok(
+    r.actions.some((a) => a.kind === 'create' && a.target === out),
+    JSON.stringify(r.actions, null, 2),
+  );
+  assert.ok(existsSync(join(out, 'writing-profile.json')), out);
 });
 
 test('a refusal keeps the bundled default, stated in the plan rather than swallowed', async () => {

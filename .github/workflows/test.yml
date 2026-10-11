@@ -84,7 +84,23 @@ jobs:
       - name: Stub the hermes CLI and the root it is detected by
         run: |
           mkdir -p "$HOME/.local/bin" "$HOME/.hermes"
-          printf '#!/bin/sh\necho "hermes $@" >> "$HOME/hermes-calls.log"\nexit 0\n' > "$HOME/.local/bin/hermes"
+          cat > "$HOME/.local/bin/hermes" <<'STUB'
+          #!/bin/sh
+          echo "hermes $@" >> "$HOME/hermes-calls.log"
+          # The real CLI writes config.yaml as it registers. A stub that only logs would make a
+          # second apply look like a fresh registration, and the idempotence check would prove
+          # nothing.
+          case "$1 $2" in
+            'mcp add')
+              mkdir -p "$HOME/.hermes"
+              printf 'mcp_servers:\n  writing-flow:\n    command: node\n' > "$HOME/.hermes/config.yaml"
+              ;;
+            'mcp remove')
+              rm -f "$HOME/.hermes/config.yaml"
+              ;;
+          esac
+          exit 0
+          STUB
           chmod +x "$HOME/.local/bin/hermes"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
@@ -103,7 +119,9 @@ jobs:
         run: |
           set -euo pipefail
           before=$(grep -c 'mcp add' "$HOME/hermes-calls.log" || true)
-          node bin/install.mjs --apply --no-deps --no-python-check
+          node bin/install.mjs --apply --no-deps --no-python-check > second.log 2>&1
+          cat second.log
           after=$(grep -c 'mcp add' "$HOME/hermes-calls.log" || true)
           test "$before" = "$after" || { echo "::error::the MCP server was registered twice"; exit 1; }
+          grep -q "unchanged writing-flow in" second.log || { echo "::error::the second apply did not report the server as unchanged"; exit 1; }
 
