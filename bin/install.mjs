@@ -38,7 +38,7 @@ import { resolveToolPaths } from '../skills/writing-flow/scripts/resolve-paths.m
 import { readManifest } from '../skills/writing-flow/scripts/profile.mjs';
 import { renderProfile } from '../skills/writing-flow/scripts/render.mjs';
 import { generateProfile } from '../skills/writing-flow/scripts/generate.mjs';
-import { runDoctor } from '../skills/writing-flow/scripts/doctor.mjs';
+import { runDoctor, formatDoctor } from '../skills/writing-flow/scripts/doctor.mjs';
 
 /** Dependency identifiers must never contain shell metacharacters or spaces. */
 const SAFE_IDENTIFIER = /^[A-Za-z0-9@/._-]+$/;
@@ -81,6 +81,10 @@ export const DEFAULT_STORE = ['.agents', 'writing-flow', 'profiles'];
  */
 export const SKILL_AGENTS = [
   { id: 'opencode', dir: ['.agents'], always: true },
+  // Hermes loads ~/.hermes/skills and nothing else under the home, so the safe copy is not a file
+  // it reads. Its dir is also the engine's plugin root: ~/.hermes/skills/<name>/scripts resolves
+  // three levels up to ~/.hermes, whose own `skills/` is the directory it scans.
+  { id: 'hermes-agent', dir: ['.hermes'] },
   { id: 'antigravity', dir: ['.antigravity'] },
   { id: 'codex', dir: ['.codex'] },
   { id: 'cursor', dir: ['.cursor'] },
@@ -93,17 +97,38 @@ export const SKILL_AGENTS = [
 /** Harnesses that receive the four dependency skills. See the header for why Claude is here. */
 export const DEPENDENCY_AGENTS = [{ id: 'claude-code', dir: ['.claude'] }, ...SKILL_AGENTS];
 
-/** Agent ids the skills CLI accepts, captured from its own error message. */
+/**
+ * Agent ids the skills CLI accepts. Captured from its own error message (a bogus `-a`), never from
+ * a pinned version: the list grows as harnesses appear, and by the time `hermes-agent` was needed
+ * it had already fallen some fifty ids behind.
+ */
 export const VALID_AGENTS = [
   'opencode', 'claude-code', 'antigravity', 'antigravity-cli', 'codex', 'cursor', 'github-copilot',
   'gemini-cli', 'kiro-cli', 'windsurf', 'zed', 'aider-desk', 'amp', 'cline', 'continue', 'crush',
   'goose', 'kilo', 'openhands', 'roo', 'trae', 'warp', 'qwen-code', 'kimi-code-cli', 'junie',
+  'hermes-agent',
 ];
 
 /** The script each gate depends on, for the "installed but unusable" check. */
 const REQUIRED_SCRIPTS = {
   'avoid-ai-writing': join('scripts', 'check-style.js'),
   'remove-ai-marks': join('scripts', 'inspect_text.py'),
+};
+
+/** Hermes: its root, the MCP server name it stores, and the commands it reads as skill bundles. */
+export const HERMES_DIR = '.hermes';
+export const HERMES_MCP_NAME = 'writing-flow';
+export const HERMES_BUNDLES = ['flow-writing', 'flow-doctor'];
+
+/**
+ * Which skills each bundle loads, so `/flow-writing` pulls the whole pipeline in one go rather
+ * than making the agent load each stage by hand. Derived from DEPENDENCIES, never a second list to
+ * maintain. The voice profile is deliberately absent: it is per-machine, and a bundle naming
+ * someone else's profile would fail to load.
+ */
+export const HERMES_BUNDLE_SKILLS = {
+  'flow-writing': ['writing-flow', ...DEPENDENCIES.map((dep) => dep.skill)],
+  'flow-doctor': ['writing-flow'],
 };
 
 const detectedAgents = (home, table) =>
@@ -163,6 +188,58 @@ const removePath = (target, dryRun, actions) => {
     detail: kind === 'absent' ? `absent ${target}` : `${dryRun ? 'would remove' : 'removed'} ${target}`,
   });
   if (!dryRun && kind === 'removed') rmSync(target, { recursive: true, force: true });
+};
+
+/**
+ * Render one `commands/<name>.md` as a Hermes skill bundle.
+ *
+ * The instruction is the command's own prose, so the two cannot drift. Every line of the block is
+ * indented two spaces to keep the YAML block scalar valid however the source is wrapped; blank
+ * lines are emitted bare rather than as trailing spaces.
+ */
+export const bundleYaml = (name, description, instruction, skills = ['writing-flow']) => {
+  const body = instruction
+    .replace(/\r\n/g, '\n')
+    .trim()
+    .split('\n')
+    .map((line) => (line.length > 0 ? `  ${line}` : ''))
+    .join('\n');
+  const list = skills.map((skill) => `  - ${skill}`).join('\n');
+  return `name: ${name}\ndescription: ${description}\nskills:\n${list}\ninstruction: |\n${body}\n`;
+};
+
+/** Split a `commands/*.md` file into its frontmatter description and its body. */
+export const commandParts = (source) => {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(source);
+  const frontmatter = match?.[1] ?? '';
+  return {
+    description: /^description:\s*(.+)$/m.exec(frontmatter)?.[1]?.trim() ?? null,
+    body: match?.[2] ?? source,
+  };
+};
+
+/** Is the `hermes` CLI callable? Probed once per run, so the plan and the run cannot disagree. */
+export const hermesAvailable = () => spawnSync('hermes', ['--version'], { encoding: 'utf8' }).status === 0;
+
+/**
+ * Register or deregister the MCP server by driving the Hermes CLI.
+ *
+ * `config.yaml` is YAML and this package takes no runtime dependencies, so merging a `mcp_servers`
+ * entry would mean either a dependency or a hand-rolled parser over a file the user also edits by
+ * hand. `hermes mcp add` owns that write. It prompts "Enable all tools?" and cancels with no
+ * stdin, so the answer is piped.
+ */
+export const hermesRunner = (args) =>
+  spawnSync('hermes', args, { input: 'Y\n', encoding: 'utf8', shell: process.platform === 'win32' });
+
+/** MCP servers live under `mcp_servers:` in config.yaml, each as one indented key. */
+export const mcpAlreadyRegistered = (configPath) => {
+  if (!existsSync(configPath)) return false;
+  try {
+    return new RegExp(`^\\s{2}${HERMES_MCP_NAME}:`, 'm').test(readFileSync(configPath, 'utf8'));
+  } catch {
+    return false;
+  }
 };
 
 /** OpenCode merges its config files; the JSONC one is usually the real one. Try plain JSON first. */
@@ -339,9 +416,10 @@ const installedProfiles = (home) => {
 /**
  * Decide the voice, in the order a person would: an explicit choice, then a personal profile kept
  * in the store, then one already installed, then the packaged default. Generating a profile is
- * never automatic - it is offered only when nothing was found.
+ * never automatic - it is offered only when nothing was found, and a refusal is stated rather
+ * than swallowed.
  */
-const planProfile = async ({ home, options, actions, warnings, skipped, dryRun }) => {
+const planProfile = async ({ home, options, actions, warnings, skipped, dryRun, ask = null }) => {
   const storeRoot = options.store ? resolve(options.store) : join(home, ...DEFAULT_STORE);
   const targets = [join(home, '.agents', 'skills'), ...(existsSync(join(home, '.claude', 'skills')) ? [join(home, '.claude', 'skills')] : [])];
 
@@ -375,10 +453,15 @@ const planProfile = async ({ home, options, actions, warnings, skipped, dryRun }
   }
 
   if (options.profile === 'generate') {
-    const name = basename(options.profileSource).replace(/\.[^.]+$/, '') || 'profile';
+    // `basename` alone names a profile "SKILL" for the common case of pointing at a skill
+    // directory, so that case borrows its directory name instead.
+    const base = basename(options.profileSource).replace(/\.[^.]+$/, '');
+    const name = (base === 'SKILL' ? basename(dirname(options.profileSource)) : base) || 'profile';
     const out = join(storeRoot, name);
     const preview = await generateProfile({ source: options.profileSource, name, outDir: out, dryRun: true });
-    for (const line of preview.excluded ?? []) warnings.push(`generate drops: ${line}`);
+    for (const entry of preview.excluded ?? []) {
+      warnings.push(`generate drops L${entry.line} (${entry.why}): ${entry.text.trim()}`);
+    }
 
     const confirm = options.yes === true || options.confirmed === true;
     if (dryRun || !confirm) {
@@ -413,12 +496,50 @@ const planProfile = async ({ home, options, actions, warnings, skipped, dryRun }
   }
 
   if (options.profile === 'default') {
-    actions.push({ kind: 'unchanged', target: storeRoot, detail: 'profile: the bundled voice-default applies' });
+    actions.push({ kind: 'unchanged', target: storeRoot, detail: 'profile: the bundled voice-default applies (--default-profile)' });
+    return;
+  }
+
+  const fallback = (why) => actions.push({ kind: 'unchanged', target: storeRoot, detail: `profile: ${why}, the bundled voice-default applies` });
+
+  // Nothing personal was found. Offer to generate one; a refusal, or nobody to ask, falls back to
+  // the packaged default. Either way the decision is stated in the plan rather than implied.
+  if (ask) {
+    const answer = ((await ask('No writing profile found. Generate one from writing you already have? [y/N] ')) ?? '').trim().toLowerCase();
+    if (answer.startsWith('y')) {
+      const source = ((await ask('Path to writing to distil (a markdown file, a SKILL.md, or a directory): ')) ?? '').trim();
+      if (!source) {
+        fallback('no source given');
+        return;
+      }
+      const base = basename(source).replace(/\.[^.]+$/, '');
+      const name = (base === 'SKILL' ? basename(dirname(source)) : base) || 'profile';
+      const out = join(storeRoot, name);
+      const preview = await generateProfile({ source, name, outDir: out, dryRun: true });
+      for (const entry of preview.excluded ?? []) {
+        warnings.push(`generate would drop L${entry.line} (${entry.why}): ${entry.text.trim()}`);
+      }
+      const go = ((await ask(`${preview.excluded.length} line(s) above would be dropped as pipeline instruction. Generate ${out}? [y/N] `)) ?? '').trim().toLowerCase();
+      if (!go.startsWith('y')) {
+        fallback('generation declined');
+        return;
+      }
+      if (dryRun) {
+        actions.push({ kind: 'create', target: out, detail: `would generate ${out} from ${source}` });
+        fallback('the bundled default applies until that runs');
+        return;
+      }
+      await generateProfile({ source, name, outDir: out, dryRun: false, confirm: true });
+      actions.push({ kind: 'create', target: out, detail: `generated ${out} from ${source}` });
+      await use(out, 'generated');
+      return;
+    }
+    fallback('generation declined');
     return;
   }
 
   warnings.push(
-    `no personal profile found (searched ${storeRoot} and the harness roots); the bundled voice-default applies — create one with: ` +
+    `no personal profile found (searched ${storeRoot} and the harness roots); the bundled voice-default applies — generate one from writing you already have with: ` +
       `node ${join(PLUGIN_ROOT, 'skills', 'writing-flow', 'scripts', 'generate.mjs')} <source> --name <name> --out ${storeRoot} --apply`,
   );
 };
@@ -444,7 +565,7 @@ const prune = ({ home, name, dryRun, actions, warnings }) => {
   }
 };
 
-const uninstall = ({ home, pluginRoot, name, dryRun, actions, warnings }) => {
+const uninstall = ({ home, pluginRoot, name, dryRun, actions, warnings, hermesRun = hermesRunner, hermesPresent = null }) => {
   prune({ home, name, dryRun, actions, warnings });
 
   const configPath = findOpencodeConfig(join(home, '.config', 'opencode'));
@@ -459,6 +580,26 @@ const uninstall = ({ home, pluginRoot, name, dryRun, actions, warnings }) => {
   if (existsSync(settingsPath)) {
     const { text: next, changed } = removeClaudeKeys(readFileSync(settingsPath, 'utf8'), name);
     if (changed) writeFileTracked(settingsPath, next, dryRun, actions);
+  }
+
+  const hermesHome = join(home, HERMES_DIR);
+  if (existsSync(hermesHome)) {
+    for (const bundle of HERMES_BUNDLES) removePath(join(hermesHome, 'skill-bundles', `${bundle}.yaml`), dryRun, actions);
+    const hermesConfig = join(hermesHome, 'config.yaml');
+    if (mcpAlreadyRegistered(hermesConfig)) {
+      const args = ['mcp', 'remove', HERMES_MCP_NAME];
+      if (!(hermesPresent ?? hermesAvailable())) {
+        warnings.push(`remove the MCP entry by hand: hermes ${args.join(' ')}`);
+      } else {
+        actions.push({
+          kind: dryRun ? 'removed' : 'ran',
+          target: hermesConfig,
+          detail: dryRun ? `would run: hermes ${args.join(' ')}` : `ran: hermes ${args.join(' ')}`,
+        });
+        if (!dryRun) hermesRun(args);
+      }
+    }
+    for (const skill of PACKAGED_SKILLS) removePath(join(hermesHome, 'skills', skill), dryRun, actions);
   }
 
   for (const skill of PACKAGED_SKILLS) removePath(join(home, '.agents', 'skills', skill), dryRun, actions);
@@ -490,7 +631,11 @@ export function parseFlags(argv) {
     noAgents: has('--no-agents'),
     noClaude: has('--no-claude'),
     noOpencode: has('--no-opencode'),
+    noHermes: has('--no-hermes'),
     allAgents: has('--all-agents'),
+    noDoctor: has('--no-doctor'),
+    noSmoke: has('--no-smoke'),
+    strictDoctor: has('--strict-doctor'),
     agentIds: null,
     profile: null,
     profileDir: null,
@@ -538,6 +683,9 @@ export async function install({
   pythonCheck = true,
   noClaude = false,
   noOpencode = false,
+  noHermes = false,
+  hermesRunner: hermesRun = hermesRunner,
+  hermesPresent = null,
   prune: doPrune = false,
   uninstall: doUninstall = false,
   profile = null,
@@ -546,12 +694,14 @@ export async function install({
   store = null,
   yes = false,
   confirmed = false,
+  ask = null,
 } = {}) {
   if (!home) throw new Error('install: a home directory is required');
   const actions = [];
   const skipped = [];
   const warnings = [];
   const primary = join(home, '.agents', 'skills');
+  const hermesRoot = join(home, HERMES_DIR, 'skills');
   const name = JSON.parse(readFileSync(join(pluginRoot, 'plugin.json'), 'utf8')).name;
 
   const depList = skillsOnly
@@ -571,7 +721,7 @@ export async function install({
   const depAgents = agentIds ? agentIds : detectedAgents(home, DEPENDENCY_AGENTS);
 
   if (doUninstall) {
-    uninstall({ home, pluginRoot, name, dryRun, actions, warnings });
+    uninstall({ home, pluginRoot, name, dryRun, actions, warnings, hermesRun, hermesPresent });
     return { ok: true, home: resolve(home), actions, skipped, warnings };
   }
   if (doPrune) prune({ home, name, dryRun, actions, warnings });
@@ -604,15 +754,31 @@ export async function install({
       `${tools.pythonProblem ?? 'python not found on PATH'} — gate 5 (provenance) will report exit 2 until Python 3 is available; the gate can skip it with --skip-marks`,
     );
   }
-  const record = {
-    node: tools.node,
-    python: tools.python,
-    ...(tools.pythonProblem ? { pythonProblem: tools.pythonProblem } : {}),
-    gate4: tools.gate4,
-    gate5: tools.gate5,
-    missing: tools.missing,
-  };
-  writeFileTracked(join(primary, 'writing-flow', 'scripts', 'paths.json'), `${JSON.stringify(record, null, 2)}\n`, dryRun, actions);
+  const recordFor = (resolved) => ({
+    node: resolved.node,
+    python: resolved.python,
+    ...(resolved.pythonProblem ? { pythonProblem: resolved.pythonProblem } : {}),
+    gate4: resolved.gate4,
+    gate5: resolved.gate5,
+    missing: resolved.missing,
+  });
+  writeFileTracked(join(primary, 'writing-flow', 'scripts', 'paths.json'), `${JSON.stringify(recordFor(tools), null, 2)}\n`, dryRun, actions);
+
+  // The Hermes copy needs its own record. `defaultRoots()` is ~/.agents, ~/.claude and
+  // ~/.config/opencode — a Hermes-only home has nothing else to resolve the gate tools from, and
+  // guessing at run time is what paths.json exists to prevent.
+  if (existsSync(join(home, HERMES_DIR))) {
+    // Resolved with `cwd` at the package, not at the Hermes copy: a `cwd` holding the record would
+    // make the engine read its own output back, and the `source` field would then flip from
+    // "search" to "paths.json" on the second run — one write that never converges.
+    const hermesTools = await resolveToolPaths({ cwd: pluginRoot, pluginRoot: join(home, HERMES_DIR) });
+    writeFileTracked(join(hermesRoot, 'writing-flow', 'scripts', 'paths.json'), `${JSON.stringify(recordFor(hermesTools), null, 2)}\n`, dryRun, actions);
+    if (hermesTools.missing.length > 0) {
+      warnings.push(
+        `the Hermes copy resolved no ${hermesTools.missing.join(' / ')}: the gates exit 2 from ${join(hermesRoot, 'writing-flow')} until they are installed into ~/.agents/skills or recorded in its paths.json`,
+      );
+    }
+  }
 
   for (const dep of depList) {
     if (!SAFE_IDENTIFIER.test(dep.skill) || !SAFE_IDENTIFIER.test(dep.repo)) {
@@ -694,9 +860,43 @@ export async function install({
 
   // 6. The voice.
   try {
-    await planProfile({ home, options: { profile, profileDir, profileSource, store, yes, confirmed }, actions, warnings, skipped, dryRun });
+    await planProfile({ home, options: { profile, profileDir, profileSource, store, yes, confirmed }, actions, warnings, skipped, dryRun, ask });
   } catch (error) {
     warnings.push(`the voice step failed and was skipped: ${error.message}`);
+  }
+
+  // 7. Hermes. No plugin registry and no config a client can read for it, so each surface it owns
+  //    is written on its own: the skills came from the skills CLI with every other agent (step 1),
+  //    the MCP server is registered through the Hermes CLI, and the two /flow-* commands become
+  //    skill bundles. Detection-gated on ~/.hermes, and scoped by --agents=hermes-agent.
+  const hermesHome = join(home, HERMES_DIR);
+  const wantsHermes = !noHermes && (agentIds ? agentIds.includes('hermes-agent') : true);
+  if (wantsHermes && existsSync(hermesHome)) {
+    const hermesConfig = join(hermesHome, 'config.yaml');
+    const server = join(hermesRoot, 'writing-flow', 'scripts', 'mcp-server.mjs');
+    if (mcpAlreadyRegistered(hermesConfig)) {
+      actions.push({ kind: 'unchanged', target: hermesConfig, detail: `unchanged ${HERMES_MCP_NAME} in ${hermesConfig}` });
+    } else if (!(hermesPresent ?? hermesAvailable())) {
+      warnings.push(`the hermes CLI was not found, so the MCP server was not registered; run: hermes mcp add ${HERMES_MCP_NAME} --command node --args ${server}`);
+    } else {
+      const args = ['mcp', 'add', HERMES_MCP_NAME, '--command', 'node', '--args', server];
+      actions.push({
+        kind: dryRun ? 'create' : 'ran',
+        target: hermesConfig,
+        detail: dryRun ? `would run: hermes ${args.join(' ')}` : `ran: hermes ${args.join(' ')}`,
+      });
+      if (!dryRun) hermesRun(args);
+    }
+
+    for (const bundle of HERMES_BUNDLES) {
+      const { description, body } = commandParts(readFileSync(join(pluginRoot, 'commands', `${bundle}.md`), 'utf8'));
+      writeFileTracked(
+        join(hermesHome, 'skill-bundles', `${bundle}.yaml`),
+        bundleYaml(bundle, description ?? `${bundle} (writing-flow)`, body, HERMES_BUNDLE_SKILLS[bundle]),
+        dryRun,
+        actions,
+      );
+    }
   }
 
   return { ok: true, home: resolve(home), actions, skipped, warnings };
@@ -744,7 +944,7 @@ async function wizard(home, options) {
 
 export const HELP = `writing-flow installer
 
-Usage: npx -y ${PACKAGE_SLUG} [options]
+Usage: npx -y ${PACKAGE_PLUGIN} [options]
 
 Writes nothing unless --apply is given, or an interactive run is confirmed.
 
@@ -755,6 +955,7 @@ Harnesses
   --no-agents               install no skills for other agents
   --no-claude               do not touch ~/.claude
   --no-opencode             do not touch ~/.config/opencode
+  --no-hermes               do not touch ~/.hermes
 
 Scope
   --skills-only             only the two skills; no dependencies, no config, no voice
@@ -764,7 +965,8 @@ Scope
 
 Existing installs
   --prune                   remove what 0.9.1 left (bundle, skill copies, commands, stale MCP entry)
-  --uninstall               also remove the plugin entry, the Claude keys and the packaged skills
+  --uninstall               also remove the plugin entry, the Claude keys, the Hermes bundles and
+                            MCP entry, and the packaged skills
   --keep                    leave existing artefacts alone (default)
 
 Voice
@@ -773,6 +975,13 @@ Voice
   --generate-profile=<file> distil a profile from writing you already have
   --no-profile              install no voice
   --store=<dir>             profile store (default ~/.agents/writing-flow/profiles)
+                            with a terminal and no profile found, the installer offers to generate
+                            one; declining keeps the bundled voice-default
+
+After the install
+  --no-doctor               do not read the setup back
+  --no-smoke                skip the doctor's known-bad/known-good script run
+  --strict-doctor           exit 2 when the doctor reports problems
 
 Output
   --json                    machine-readable plan
@@ -812,23 +1021,53 @@ if (invokedDirectly) {
     process.exit(report.ok ? 0 : 1);
   }
 
-  if (interactive) await wizard(home, options);
+  // A prompt that ends (Ctrl+D, or a closed pipe) is an abort, not a crash: nothing further is
+  // written and the reason is stated. The wizard and the profile offer are both interactive, so
+  // the guard has to span both.
+  try {
+    if (interactive) await wizard(home, options);
 
-  const dryRun = !options.apply && options.confirmed !== true;
-  const report = await install({ home, dryRun, ...options });
+    // The profile offer needs a live answer, so it is only wired when there is a terminal to ask.
+    let ask = null;
+    let askRl = null;
+    if (interactive) {
+      askRl = createInterface({ input: process.stdin, output: process.stdout });
+      ask = (question) => askRl.question(question);
+    }
 
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify({ dryRun, ...report }, null, 2)}\n`);
-  } else {
-    for (const action of report.actions) process.stdout.write(`  ${action.kind.padEnd(9)} ${action.detail}\n`);
-    for (const skip of report.skipped) process.stdout.write(`  skipped   ${skip}\n`);
-    for (const warning of report.warnings) process.stdout.write(`  warning   ${warning}\n`);
-    const changed = report.actions.filter((a) => a.kind !== 'unchanged' && a.kind !== 'absent').length;
-    process.stdout.write(
-      dryRun
-        ? `install: dry run, ${changed} change(s) planned. Re-run with --apply to make them.\n`
-        : `install: applied, ${changed} change(s).\n`,
-    );
+    const dryRun = !options.apply && options.confirmed !== true;
+    const report = await install({ home, dryRun, ...options, ask });
+    if (askRl) askRl.close();
+
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify({ dryRun, ...report }, null, 2)}\n`);
+    } else {
+      for (const action of report.actions) process.stdout.write(`  ${action.kind.padEnd(9)} ${action.detail}\n`);
+      for (const skip of report.skipped) process.stdout.write(`  skipped   ${skip}\n`);
+      for (const warning of report.warnings) process.stdout.write(`  warning   ${warning}\n`);
+      const changed = report.actions.filter((a) => a.kind !== 'unchanged' && a.kind !== 'absent').length;
+      process.stdout.write(
+        dryRun
+          ? `install: dry run, ${changed} change(s) planned. Re-run with --apply to make them.\n`
+          : `install: applied, ${changed} change(s).\n`,
+      );
+    }
+
+    // The install is not finished until the setup has been read back: tools, scripts, skills, the
+    // MCP surface and the six stages. Reported always; only --strict-doctor makes it fatal.
+    if (!options.noDoctor) {
+      const doctor = await runDoctor({ smoke: !options.noSmoke });
+      if (!options.json) process.stdout.write(`\n${formatDoctor(doctor)}`);
+      else process.stdout.write(`${JSON.stringify({ doctor }, null, 2)}\n`);
+      if (options.strictDoctor && !doctor.ok) process.exit(2);
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') {
+      process.stdout.write('install: the prompt was closed before it was answered; nothing further was written.\n');
+      process.exit(1);
+    }
+    throw error;
   }
+
   process.exit(0);
 }

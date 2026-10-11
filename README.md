@@ -56,15 +56,17 @@ The install does these things, so you do not have to:
 - copies both skills into `~/.agents/skills` byte-exact for the installed version, because that
   is the root the engine resolves against;
 - records the resolved tool paths in `paths.json` so later runs need not guess;
-- pulls the four dependency skills with targeted installs.
+- pulls the four dependency skills with targeted installs;
+- registers the MCP server with `hermes mcp add` and writes the two `/flow-*` commands as skill
+  bundles, when `~/.hermes` exists.
 
 And it deliberately does **not**:
 
 - **create a profile.** Without one the bundled neutral default applies. The pipeline skill
   mentions once, on the first writing task rather than now, that a profile can be generated from
   writing you already have;
-- **touch a harness it cannot find.** It only writes to `~/.config/opencode` and `~/.claude` when
-  those directories already exist;
+- **touch a harness it cannot find.** It only writes to `~/.config/opencode`, `~/.claude` and
+  `~/.hermes` when those directories already exist;
 - **remove anything.** It copies; it never prunes. If a command or skill was renamed upstream, a
   stale copy stays behind and you should delete it yourself.
 
@@ -84,6 +86,7 @@ npx -y skills@latest add <owner>/<repo> -g -a <agent> -s <skill> -y --copy
 | `--apply` | write; without it every run is a dry run |
 | `--agents=<a,b>` | wire only these harnesses — the skills, and the OpenCode/Claude config when `opencode` / `claude-code` are named |
 | `--all-agents` | every detected harness |
+| `--no-hermes` | do not touch `~/.hermes` |
 | `--skills-only` | the two skills only: no dependencies, no config, no voice |
 | `--no-deps` | the skills, but not the four dependencies |
 | `--offline` | never reach the network; use the copies inside the package |
@@ -115,6 +118,12 @@ Six stages, run in order:
 Stages 4 and 5 are checked by the gate, which exits `0` clean, `1` violation, `2` tool error.
 A missing tool is always `2`, never a silent pass.
 
+Stages 0-3 produce the piece; 4 and 5 verify it. Stages 2 and 3 are decided by
+`scripts/lang.mjs`, which counts the prose after stripping code, URLs and inline identifiers — an
+English piece has no Arabic pass, and that is *inapplicable*, not missing, so no gap is reported for
+it. Read the gate's lines rather than its exit code: a run with both gates skipped prints `CLEAN`
+and exits `0` exactly like a full pass.
+
 ## Layout
 
 ```
@@ -125,7 +134,7 @@ commands/                        the native commands: flow-writing, flow-doctor
 opencode/index.mjs               the OpenCode plugin: skills, MCP server and commands
 bin/install.mjs                  the installer (+ .ps1 / .sh shims)
 skills/writing-flow/SKILL.md     the pipeline contract (no voice, no style rules)
-skills/writing-flow/scripts/     the engine: gate, profile, render, doctor, MCP server
+skills/writing-flow/scripts/     the engine: gate, lang, profile, render, doctor, MCP server
 skills/voice-default/            the neutral fallback profile
 docs/                            ROADMAP only — no planning documents are tracked
 .mcp.json                        Claude Code MCP config (generated)

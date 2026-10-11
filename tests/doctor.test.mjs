@@ -87,6 +87,64 @@ test('accepts a voice card regenerated from its SKILL.md', async () => {
   assert.ok(!d.problems.some((p) => /stale card/.test(p)));
 });
 
+test('reports all six stages and what each needs', async () => {
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [], store: STORE, home: scratch(), smoke: false });
+  assert.deepEqual(d.stages.map((s) => s.n), [0, 1, 2, 3, 4, 5]);
+  assert.ok(d.stages.every((s) => typeof s.name === 'string' && 'status' in s && 'detail' in s));
+  assert.ok(d.stages.some((s) => s.status !== 'ok'), 'a root with nothing installed cannot run every stage');
+  assert.ok(d.problems.some((p) => /pipeline stage/.test(p)));
+});
+
+test('flags a skill that resolves twice inside one root, and names the fix', async () => {
+  const root = scratch();
+  for (const rel of ['writing-flow', join('nested', 'writing-flow')]) {
+    mkdirSync(join(root, rel), { recursive: true });
+    writeFileSync(join(root, rel, 'SKILL.md'), '---\nname: writing-flow\n---\n\nBody.\n');
+  }
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [root], store: STORE, home: scratch(), smoke: false });
+  assert.ok(d.problems.some((p) => /ambiguous skill: 2 copies of writing-flow/.test(p)), JSON.stringify(d.problems, null, 2));
+  assert.ok(d.problems.some((p) => /delete all but one/.test(p)));
+  assert.equal(d.skills.find((s) => s.skill === 'writing-flow').status, 'ambiguous');
+});
+
+test('one copy per root is not ambiguous, however many roots hold one', async () => {
+  const a = scratch();
+  const b = scratch();
+  for (const root of [a, b]) {
+    mkdirSync(join(root, 'writing-flow'), { recursive: true });
+    writeFileSync(join(root, 'writing-flow', 'SKILL.md'), '---\nname: writing-flow\n---\n\nBody.\n');
+  }
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [a, b], store: STORE, home: scratch(), smoke: false });
+  assert.equal(d.skills.find((s) => s.skill === 'writing-flow').status, 'ok');
+  assert.ok(!d.problems.some((p) => /ambiguous skill: .*writing-flow/.test(p)));
+});
+
+test('mcp is not-applicable when the machine has no ~/.hermes', async () => {
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [], store: STORE, home: scratch(), smoke: false });
+  assert.equal(d.mcp.status, 'not-applicable');
+});
+
+test('mcp reports a missing registration with the command that fixes it', async () => {
+  const home = scratch();
+  mkdirSync(join(home, '.hermes'), { recursive: true });
+  writeFileSync(join(home, '.hermes', 'config.yaml'), 'mcp_servers:\n  other:\n    command: node\n');
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [], store: STORE, home, smoke: false });
+  assert.equal(d.mcp.status, 'missing');
+  assert.ok(/hermes mcp add writing-flow/.test(d.mcp.detail), d.mcp.detail);
+  assert.equal(d.ok, false);
+});
+
+test('smoke exercises the real gate scripts, and skips rather than fails without them', async () => {
+  const d = await runDoctor({ cwd: '.', pluginRoot: '.', roots: [], store: STORE, smoke: true });
+  if (!d.gate4 || !d.gate5) {
+    assert.equal(d.smoke.status, 'skipped');
+    assert.ok(d.warnings.some((w) => /not exercised/.test(w)));
+    return;
+  }
+  assert.equal(d.smoke.status, 'ok', JSON.stringify(d.smoke));
+  assert.deepEqual(d.smoke.exits, { bad: 1, good: 0 });
+});
+
 test('flags a SKILL.md version that differs from the manifest', async () => {
   const dir = profileCopy();
   const manifest = readManifest(dir);

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { DEPENDENCIES, install, parseFlags } from '../bin/install.mjs';
 
 const scratchHome = () => mkdtempSync(join(tmpdir(), 'wf-home '));
@@ -17,6 +17,85 @@ const recorder = () => {
     },
   };
 };
+
+test('accepts hermes-agent as an agent id', () => {
+  const options = parseFlags(['--agents=hermes-agent,claude-code']);
+  assert.deepEqual(options.invalid, []);
+  assert.deepEqual(options.agentIds, ['hermes-agent', 'claude-code']);
+});
+
+test('VALID_AGENTS stays in step with the skills CLI', { skip: process.env.WF_LIVE_CLI !== '1' }, async () => {
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync('npx', ['-y', 'skills@latest', 'add', 'adelpro/writing-flow', '-g', '-a', 'bogus', '-y'], { encoding: 'utf8' });
+  const line = `${r.stdout}${r.stderr}`.match(/Valid agents:\s*(.+)/)?.[1] ?? '';
+  assert.ok(line, 'the CLI stopped printing its agent list; re-capture by hand');
+  const live = new Set(line.split(',').map((s) => s.trim()));
+  for (const id of VALID_AGENTS) assert.ok(live.has(id), `${id} is no longer accepted by the skills CLI`);
+});
+
+test('generating from an SKILL.md names the profile after its directory, not "SKILL"', async () => {
+  const home = scratchHome();
+  const src = join(home, 'my-voice', 'SKILL.md');
+  mkdirSync(dirname(src), { recursive: true });
+  writeFileSync(src, '---\nname: my-voice\ndescription: how I write\n---\n\n## Persona\n- First person, specific numbers.\n\nRun `purple-cow-content` for the angle.\n');
+
+  const rec = recorder();
+  const r = await install({ home, dependencies: [], runner: rec.runner, profile: 'generate', profileSource: src, dryRun: true });
+
+  const target = r.actions.find((a) => a.target.endsWith(join('profiles', 'my-voice')));
+  assert.ok(target, JSON.stringify(r.actions, null, 2));
+  const dropped = r.warnings.find((w) => w.startsWith('generate drops'));
+  assert.ok(dropped, JSON.stringify(r.warnings, null, 2));
+  assert.ok(!dropped.includes('[object Object]'), dropped);
+  assert.ok(dropped.includes('purple-cow-content'), dropped);
+});
+
+test('offers to generate a profile when none is found, and generates on a yes', async () => {
+  const home = scratchHome();
+  const src = join(home, 'writing', 'post.md');
+  mkdirSync(dirname(src), { recursive: true });
+  writeFileSync(src, '## How I write\n\nI report failures plainly and cite numbers.\n');
+
+  const answers = ['y', src, 'y'];
+  const ask = async () => answers.shift() ?? '';
+  const r = await install({ home, dependencies: [], runner: recorder().runner, ask });
+
+  assert.ok(r.actions.some((a) => /generated .*profiles\/post/.test(a.detail)), JSON.stringify(r.actions, null, 2));
+  assert.ok(existsSync(join(home, '.agents', 'writing-flow', 'profiles', 'post', 'writing-profile.json')));
+});
+
+test('a refusal keeps the bundled default, stated in the plan rather than swallowed', async () => {
+  const home = scratchHome();
+  const r = await install({ home, dependencies: [], runner: recorder().runner, ask: async () => 'n' });
+  assert.ok(
+    r.actions.some((a) => /generation declined, the bundled voice-default applies/.test(a.detail)),
+    JSON.stringify(r.actions, null, 2),
+  );
+  assert.ok(!existsSync(join(home, '.agents', 'writing-flow', 'profiles')));
+});
+
+test('declining the second prompt leaves no half-generated profile behind', async () => {
+  const home = scratchHome();
+  const src = join(home, 'post.md');
+  writeFileSync(src, '## How I write\n\nPlainly.\n');
+  const answers = ['y', src, 'n'];
+  const r = await install({ home, dependencies: [], runner: recorder().runner, ask: async () => answers.shift() ?? '' });
+  assert.ok(r.actions.some((a) => /generation declined/.test(a.detail)));
+  assert.ok(!existsSync(join(home, '.agents', 'writing-flow', 'profiles', 'post')));
+});
+
+test('with no one to ask, the fallback is a warning carrying the command instead', async () => {
+  const home = scratchHome();
+  const r = await install({ home, dependencies: [], runner: recorder().runner });
+  const warning = r.warnings.find((w) => /no personal profile found/.test(w));
+  assert.ok(warning, JSON.stringify(r.warnings, null, 2));
+  assert.ok(/generate\.mjs/.test(warning));
+});
+
+test('the help text advertises the npm package, not the repository slug', async () => {
+  const { HELP } = await import('../bin/install.mjs');
+  assert.match(HELP, /Usage: npx -y @adelpro\/writing-flow \[options\]/);
+});
 
 test('a dry run reports what it would do and writes nothing', async () => {
   const home = scratchHome();

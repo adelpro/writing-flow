@@ -76,6 +76,48 @@ byte-order mark makes the provenance gate fail on every file.
 The gate checks mechanics only. It does not measure whether the text sounds like the profile's
 voice, and nothing may present a passing gate as a claim that it does.
 
+## When a stage cannot run
+
+Settle the language **before** stage 2 rather than after it:
+
+```sh
+node <this skill's base directory>/scripts/lang.mjs <draft-file>
+```
+
+`ar` or `mixed` — the Arabic pass applies. `en` — stages 2 and 3 are **inapplicable, not missing**:
+they were never part of this run, so pass over them and report nothing. `unknown` means too little
+text to decide, and the same answer follows. Do not settle this by eye: the helper counts prose
+after stripping code, URLs and inline identifiers, because a profile may keep English identifiers
+untranslated inline and those are not evidence of an English piece.
+
+When a stage skill genuinely cannot be loaded, run the diagnostic instead of guessing at the cause:
+
+```sh
+node <this skill's base directory>/scripts/doctor.mjs
+```
+
+It names the skill, the root, every path that resolves and the fix. A skill can also be present and
+unloadable — two copies under one root — which a harness reports as "not found", so the two are
+indistinguishable from here.
+
+Then say, **once** and in one sentence, which stage will not run and what that means for the piece.
+
+- **0** — skip it and deliver without the angle and the A/B title.
+- **1** — the pipeline needs a voice. No profile anywhere resolves to the bundled default, and the
+  suggestion above applies. A profile that cannot be *read* is different: the voice is unknown, so
+  say so and let the user choose. Never write in a generic register and call it their voice.
+- **2 and 3** — a pair, and the language check decides whether they are in the run at all. If
+  `fasaha` cannot run, the re-check has nothing to restore: one gap, not two.
+- **4 and 5** — verification, not production. Skipped only when the machine makes them impossible —
+  no Python for the provenance gate, no gate script at all — never as a preference, because they
+  are the only stages whose result is evidence rather than judgement. The provenance gate inspects
+  files, so a piece that is only ever a chat message has little for it to find.
+
+Stages 0-3 produce the piece; stages 4-5 verify it. Report a residual in the delivered text, not
+only in your reasoning: four stages out of six is a legitimate outcome, and a stage skipped in
+silence is not. Read the gate's lines rather than its exit code — a run with both gates skipped
+prints `CLEAN` and exits `0` exactly like a full pass.
+
 ## No server required
 
 This skill must work with no MCP server configured. Every gate stays runnable as a plain

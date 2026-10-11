@@ -140,6 +140,11 @@ engine loads and behaves, and the integration job is what actually exercises the
    user to name existing writing first. Bridging the conversation to a profile is the obvious next
    step, and the parked service already assumed an agent that distils local writing.
 
+7. **`VALID_AGENTS` drifts from the skills CLI.** It is a hand-captured list with nothing in CI
+   keeping it current, so a harness can ship and stay unreachable through `--agents`. The check
+   exists but is opt-in (`WF_LIVE_CLI=1`) because it needs the network; a scheduled job would close
+   it properly.
+
 ### Deferred minors
 
 - Junction-mode render reports hash the path string, so a junction pointing at the wrong store is

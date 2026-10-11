@@ -69,3 +69,41 @@ jobs:
             echo "::error::the gate tests skipped — the third-party tools did not resolve"
             exit 1
           }
+
+  # No runner has ~/.hermes or a hermes binary, so the Hermes branch is invisible to the jobs
+  # above. Exercise it against a fake home and a stub CLI rather than shipping it untested.
+  hermes-surface:
+    name: the hermes surfaces are planned and written
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Stub the hermes CLI and the root it is detected by
+        run: |
+          mkdir -p "$HOME/.local/bin" "$HOME/.hermes"
+          printf '#!/bin/sh\necho "hermes $@" >> "$HOME/hermes-calls.log"\nexit 0\n' > "$HOME/.local/bin/hermes"
+          chmod +x "$HOME/.local/bin/hermes"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Apply
+        run: node bin/install.mjs --apply --no-deps --no-python-check
+
+      - name: The hermes surfaces must exist
+        run: |
+          set -euo pipefail
+          test -f "$HOME/.hermes/skill-bundles/flow-writing.yaml"
+          test -f "$HOME/.hermes/skill-bundles/flow-doctor.yaml"
+          test -f "$HOME/.hermes/skills/writing-flow/scripts/paths.json"
+          grep -q 'mcp add writing-flow --command node --args .*mcp-server.mjs' "$HOME/hermes-calls.log"
+
+      - name: A second apply must not re-register the server
+        run: |
+          set -euo pipefail
+          before=$(grep -c 'mcp add' "$HOME/hermes-calls.log" || true)
+          node bin/install.mjs --apply --no-deps --no-python-check
+          after=$(grep -c 'mcp add' "$HOME/hermes-calls.log" || true)
+          test "$before" = "$after" || { echo "::error::the MCP server was registered twice"; exit 1; }
+

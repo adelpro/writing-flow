@@ -48,10 +48,11 @@ name.
 |---|---|---|
 | Claude Code | the marketplace plugin, declared in `~/.claude/settings.json` | `/plugin marketplace add adelpro/writing-flow` |
 | OpenCode | the package plugin, from `plugins` in `opencode.json(c)` | `opencode plugin add @adelpro/writing-flow -g` |
+| Hermes Agent | the skills CLI into `~/.hermes/skills`, then `hermes mcp add` for the server and bundle YAML in `~/.hermes/skill-bundles/` | `npx -y @adelpro/writing-flow --apply` |
 | Agent Plugins clients (Cursor, Copilot/VS Code, Codex) | `plugin.json` + `skills/` + `mcp.json`, loaded as the package directory | load the directory |
 | Any Agent Skills client | `skills/`, installed by the skills CLI | `npx -y skills@latest add adelpro/writing-flow -g -a <agent> -s writing-flow -s voice-default -y --copy` |
 
-`bin/install.mjs` wires the first, second and fourth of those natively and never hand-copies
+`bin/install.mjs` wires the first, second, fourth and fifth of those natively and never hand-copies
 what a harness can fetch itself.
 
 ## Notes

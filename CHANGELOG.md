@@ -2,6 +2,46 @@
 
 All notable changes to this package. Versioning follows Semantic Versioning.
 
+## 0.11.0
+
+- **Added: Hermes Agent is wired natively.** Hermes is a fourth shape, not a fourth copy: no plugin
+  registry, so each surface is written on its own. The two skills come from the skills CLI
+  (`-a hermes-agent`, into `~/.hermes/skills` — the only root under the home Hermes reads, verified
+  by probe rather than assumed), the MCP server is registered with `hermes mcp add`, and the two
+  `/flow-*` commands become skill bundles in `~/.hermes/skill-bundles/`. Every write is
+  detection-gated on `~/.hermes`, `--no-hermes` opts out, and `--uninstall` removes all three.
+- **Added: `paths.json` beside the Hermes engine copy.** `defaultRoots()` is `~/.agents`,
+  `~/.claude` and `~/.config/opencode`, so a Hermes-only home had nothing to resolve the gate tools
+  from. The Hermes copy now records its own, and a gap is a warning rather than a bare exit 2.
+- **Added: the profile is offered at install time, and the answer is stated.** With a terminal and
+  no profile anywhere, the installer asks whether to distil one from writing the user already has,
+  previews the lines it would drop as pipeline instruction, and generates only on a second yes. A
+  refusal — or nobody to ask — is recorded in the plan as "the bundled voice-default applies",
+  never left implicit. Ctrl+D at any prompt now aborts cleanly instead of throwing `AbortError`.
+- **Added: the install ends by reading itself back.** `doctor` runs automatically after every
+  apply and covers what a half-install hides: the tools, the gate scripts **executed** against a
+  known-bad and a known-good fixture, each required skill by name and status, the MCP surface, and
+  all six pipeline stages with what each one needs. `--no-doctor` silences it, `--no-smoke` skips
+  the script run, and `--strict-doctor` makes its problems fatal.
+- **Added: the skill defines what happens when a stage cannot run.** Stages 0-3 produce the piece
+  and may be skipped with the residual stated; stages 4-5 verify it and are skipped only when the
+  machine makes them impossible, never as a preference. An inapplicable stage is not a missing one:
+  an English piece has no Arabic pass, and no gap is reported for it. A stage skipped in silence is
+  named as the failure, and the gate's `skipped` lines are to be read rather than its exit code,
+  which cannot tell a clean pass from an unattended one.
+- **Added: `scripts/lang.mjs` — the language of a draft, decided mechanically.** Stages 2-3 hinge
+  on whether the piece is Arabic, which was the one judgement in the pipeline with nothing behind
+  it. Counts are taken from prose after code fences, inline code, URLs, link targets and HTML are
+  stripped, because a profile keeps English identifiers untranslated inline and they are not
+  evidence of an English piece. Arabic-Indic digits are not letters.
+- **Fixed: `VALID_AGENTS` had fallen behind the skills CLI.** The list was captured from one CLI
+  error message and no check kept it current, so a harness could ship and stay unreachable through
+  `--agents`. `hermes-agent` is the case that cost us; the comment now names the provenance, and an
+  opt-in live test (`WF_LIVE_CLI=1`) pins the list against the CLI.
+- **Fixed: a skill whose name resolves twice inside one root is now reported.** The failure a user
+  meets is "skill not found", so the doctor names both paths, says which root is affected and gives
+  the fix. Copies across roots are deliberately *not* flagged: each harness reads its own.
+
 ## 0.10.0
 
 - **Added: an options surface on the installer.** `--agents`, `--all-agents`, `--no-agents`,
